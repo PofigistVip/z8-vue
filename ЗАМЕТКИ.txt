@@ -1,0 +1,1 @@
+Запускал через гайд https://tailwindcss.com/docs/installation/using-vite
