@@ -1,7 +1,17 @@
 export class Z8Client {
   constructor(options = {}) {
     this.url = options.url ?? '/request.json'
-    this.session = options.session ?? '77CDEB34-AB2F-4ED7-A99E-81BCFDF86298'
+    this.session = options.session ?? null
+  }
+
+  setSession(session) {
+    this.session = session && String(session).trim() ? String(session).trim() : null
+  }
+
+  requireSession() {
+    if (!this.session) {
+      throw new Error('Z8: session is not set. Log in first.')
+    }
   }
 
   async postForm(fields) {
@@ -27,17 +37,42 @@ export class Z8Client {
     return await res.json()
   }
 
+  async login({ login, password }) {
+    const payload = {
+      request: 'login',
+      login,
+      experimental: 'true',
+    }
+    const pwd = typeof password === 'string' ? password.trim() : ''
+    if (pwd) payload.password = pwd
+    const json = await this.postForm(payload)
+    if (json?.success !== true) {
+      const msg =
+        typeof json?.message === 'string'
+          ? json.message
+          : typeof json?.error === 'string'
+            ? json.error
+            : JSON.stringify(json ?? {})
+      throw new Error(msg || 'Login failed')
+    }
+    return json
+  }
+
   async meta({
     request,
     id,
     period = { start: null, finish: null },
   }) {
-    return await this.postForm({
+    this.requireSession()
+    const fields = {
       request,
-      id,
       period,
       session: this.session,
-    })
+    }
+    if (id !== undefined && id !== null && String(id).length > 0) {
+      fields.id = id
+    }
+    return await this.postForm(fields)
   }
 
   async read({
@@ -46,6 +81,7 @@ export class Z8Client {
     limit = 200,
     period = { start: null, finish: null },
   }) {
+    this.requireSession()
     return await this.postForm({
       action: 'read',
       request,
@@ -67,6 +103,7 @@ export class Z8Client {
     limit = 200,
     action = 'read',
   }) {
+    this.requireSession()
     return await this.postForm({
       action,
       request,
@@ -81,4 +118,3 @@ export class Z8Client {
     })
   }
 }
-

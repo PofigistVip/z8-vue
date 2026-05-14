@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 
 import Z8Form from './Z8Form.vue'
 import Z8Listbox from './Z8Listbox.vue'
@@ -7,17 +7,33 @@ import { Z8Client } from '../../z8/z8Client.js'
 
 const props = defineProps({
   spec: { type: Object, required: true },
+  viewRequest: {
+    type: String,
+    default: 'ru.moscollector.control.module.cards.view.СчитывателиView',
+  },
+  viewId: { type: String, default: '' },
 })
+
+const injectedClient = inject('z8Client', null)
+const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Client()
 
 const specState = ref(props.spec)
 watch(
   () => props.spec,
   (next) => {
     specState.value = next
+    selectedRecordId.value = null
   }
 )
 
-const records = computed(() => Array.isArray(specState.value?.data) ? specState.value.data : [])
+watch(
+  () => [props.viewRequest, props.viewId],
+  () => {
+    selectedRecordId.value = null
+  }
+)
+
+const records = computed(() => (Array.isArray(specState.value?.data) ? specState.value.data : []))
 const selectedRecordId = ref(null)
 const selectedIndex = computed(() => {
   if (!selectedRecordId.value) return 0
@@ -27,15 +43,32 @@ const selectedIndex = computed(() => {
 const selectedRecord = computed(() => records.value[selectedIndex.value] ?? null)
 const listLoading = ref(false)
 
-const client = new Z8Client()
-
-const listboxControl = computed(() => {
-  const columns = [
+const listColumns = computed(() => {
+  const controls = Array.isArray(specState.value?.controls) ? specState.value.controls : []
+  const fromSpec = controls
+    .filter(
+      (c) =>
+        c &&
+        typeof c.name === 'string' &&
+        typeof c.header === 'string' &&
+        !c.isTabControl &&
+        !c.isListbox &&
+        !c.isSection
+    )
+    .map((c) => ({
+      name: c.name,
+      header: c.header,
+      type: typeof c.type === 'string' ? c.type : 'string',
+    }))
+  if (fromSpec.length > 0) return fromSpec
+  return [
     { name: 'id', header: 'ID', type: 'string' },
     { name: 'подр.name', header: 'Подразделение', type: 'string' },
     { name: 'online', header: 'Статус', type: 'string' },
   ]
+})
 
+const listboxControl = computed(() => {
   return {
     name: 'recordsList',
     header: 'Записи',
@@ -44,7 +77,7 @@ const listboxControl = computed(() => {
     query: {
       name: '__records__',
       text: specState.value?.text ?? 'Records',
-      columns,
+      columns: listColumns.value,
     },
     data: records.value,
     selectable: true,
@@ -65,7 +98,7 @@ async function refreshMainList() {
   listLoading.value = true
   try {
     const res = await client.read({
-      request: 'ru.moscollector.control.module.cards.view.СчитывателиView',
+      request: props.viewRequest,
       period: { start: null, finish: null },
       start: 0,
       limit: 200,
@@ -105,4 +138,3 @@ async function refreshMainList() {
     </section>
   </div>
 </template>
-
