@@ -61,6 +61,19 @@ const selectedIndex = computed(() => {
 const selectedRecord = computed(() => records.value[selectedIndex.value] ?? null)
 
 const listColumns = computed(() => {
+  const nameFields = Array.isArray(specState.value?.nameFields) ? specState.value.nameFields : []
+  const fromNameFields = nameFields
+    .map((c) => {
+      if (!c || typeof c.name !== 'string' || typeof c.header !== 'string') return null
+      return {
+        name: c.name,
+        header: c.header,
+        type: typeof c.type === 'string' ? c.type : 'string',
+      }
+    })
+    .filter(Boolean)
+  if (fromNameFields.length > 0) return fromNameFields
+
   const controls = Array.isArray(specState.value?.controls) ? specState.value.controls : []
   const fromSpec = controls
     .filter(
