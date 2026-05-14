@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 
 import z8prik from '../../mock/z8prik.json'
 import z8srOnline from '../../mock/z8srOnline.json'
@@ -7,7 +7,7 @@ import readPrik from '../../mock/readPrik.json'
 import readSrOnline from '../../mock/readSrOnline.json'
 import { Z8Client } from '../../z8/z8Client.js'
 
-const emit = defineEmits(['select-row', 'refresh'])
+const emit = defineEmits(['select-row', 'refresh', 'server-response'])
 
 const props = defineProps({
   control: { type: Object, required: true },
@@ -15,37 +15,93 @@ const props = defineProps({
   uiRegistry: { type: Object, default: () => ({}) },
 })
 
+const injectedClient = inject('z8Client', null)
+const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Client()
+
 const header = computed(() => props.control?.header ?? props.control?.name ?? 'List')
 const query = computed(() => props.control?.query ?? null)
-const columns = computed(() => Array.isArray(query.value?.columns) ? query.value.columns : [])
+const columns = computed(() => (Array.isArray(query.value?.columns) ? query.value.columns : []))
 const selectable = computed(() => Boolean(props.control?.selectable))
-const selectedIndex = computed(() => (Number.isFinite(props.control?.selectedIndex) ? props.control.selectedIndex : -1))
+const selectedIndex = computed(() =>
+  Number.isFinite(props.control?.selectedIndex) ? props.control.selectedIndex : -1
+)
 const loading = computed(() => Boolean(props.control?.loading))
 const fillHeight = computed(() => Boolean(props.control?.fillHeight))
 
 const internalLoading = ref(false)
-const remoteRows = ref(null)
 const effectiveLoading = computed(() => loading.value || internalLoading.value)
 
-const isRemote = computed(() => Array.isArray(remoteRows.value))
+const serverPageRows = ref([])
+const pageStart = ref(0)
+const pageTotal = ref(null)
+const pageLimit = ref(200)
+
+const isSubQueryList = computed(() => {
+  const name = query.value?.name
+  return name === 'прик' || name === 'srOnline'
+})
+
+const builtReadQueryPaging = computed(() => {
+  if (!isSubQueryList.value) return null
+  const request = query.value?.request
+  const queryName = query.value?.name
+  const recordId = props.record?.recordId
+  if (!request || !queryName || !recordId) return null
+
+  const link = query.value?.link?.name
+  const filter = link ? [{ property: link, value: recordId }] : []
+  const fields = Array.isArray(query.value?.fields)
+    ? query.value.fields.map((f) => f?.name).filter(Boolean)
+    : []
+  const sort = Array.isArray(query.value?.sort) ? query.value.sort : []
+  const values = { recordId }
+
+  return {
+    kind: 'readQuery',
+    request,
+    query: queryName,
+    fields,
+    filter,
+    sort,
+    values,
+    limit: 200,
+  }
+})
+
+const effectiveServerPaging = computed(() => props.control?.serverPaging ?? builtReadQueryPaging.value)
+
+const useServerPaging = computed(() => Boolean(effectiveServerPaging.value))
+
+const pagingFingerprint = computed(() => {
+  const sp = effectiveServerPaging.value
+  if (!sp) return ''
+  if (sp.kind === 'read') {
+    return `read|${sp.request}|${JSON.stringify(sp.period ?? null)}|${Number(sp.limit) || 200}`
+  }
+  if (sp.kind === 'readQuery') {
+    return `rq|${sp.request}|${sp.query}|${Number(sp.limit) || 200}|${JSON.stringify(sp.filter ?? null)}|${JSON.stringify(sp.sort ?? null)}|${JSON.stringify(sp.values ?? null)}`
+  }
+  return ''
+})
 
 const dataset = computed(() => {
+  if (useServerPaging.value) return Array.isArray(serverPageRows.value) ? serverPageRows.value : []
   if (Array.isArray(props.control?.data)) return props.control.data
-  if (Array.isArray(remoteRows.value)) return remoteRows.value
   const name = query.value?.name
   if (name === 'прик') return z8prik?.data ?? []
   if (name === 'srOnline') return z8srOnline?.data ?? []
   return []
 })
 
-const linkField = computed(() => query.value?.link?.name ?? (query.value?.name ? `${query.value.name}.readerId` : null))
+const linkField = computed(
+  () => query.value?.link?.name ?? (query.value?.name ? `${query.value.name}.readerId` : null)
+)
 
 const filteredRows = computed(() => {
   const rows = Array.isArray(dataset.value) ? dataset.value : []
+  if (useServerPaging.value) return rows
   const lk = linkField.value
   const recordId = props.record?.recordId
-
-  if (isRemote.value) return rows
   if (!lk || !recordId) return rows
   return rows.filter((r) => r?.[lk] === recordId)
 })
@@ -88,6 +144,31 @@ const sortedRows = computed(() => {
 const rowKey = computed(() => props.control?.rowKey ?? null)
 const selectedKey = computed(() => props.control?.selectedKey ?? null)
 
+const rangeLabel = computed(() => {
+  const n = sortedRows.value.length
+  if (!n) {
+    const t = pageTotal.value
+    return t != null && Number.isFinite(t) ? `0 из ${t}` : '0'
+  }
+  const from = pageStart.value + 1
+  const to = pageStart.value + n
+  const t = pageTotal.value
+  if (t != null && Number.isFinite(t)) return `${from}–${to} из ${t}`
+  return `${from}–${to}`
+})
+
+const canPrevPage = computed(() => useServerPaging.value && pageStart.value > 0)
+
+const canNextPage = computed(() => {
+  if (!useServerPaging.value) return false
+  const lim = pageLimit.value
+  const n = sortedRows.value.length
+  if (n < lim) return false
+  const t = pageTotal.value
+  if (t != null && Number.isFinite(t)) return pageStart.value + lim < t
+  return true
+})
+
 function formatCellValue(col, raw) {
   if (raw === null || raw === undefined || raw === '') return '—'
   if (col?.type === 'datetime') {
@@ -106,63 +187,135 @@ function onRowClick(row, index) {
 }
 
 function onRefreshClick() {
+  if (useServerPaging.value) {
+    loadPage(0)
+    return
+  }
   emit('refresh')
 }
 
-const client = new Z8Client()
+function syncSelectionAfterLoad(rows) {
+  if (!selectable.value || !rows.length) return
+  const rk = rowKey.value
+  const sk = selectedKey.value
+  if (rk && sk && rows.some((r) => r?.[rk] === sk)) return
+  if (rk) {
+    const key = rows[0]?.[rk]
+    emit('select-row', { row: rows[0], index: 0, key })
+  }
+}
 
-const isSubQueryList = computed(() => {
-  const name = query.value?.name
-  return name === 'прик' || name === 'srOnline'
-})
+async function loadPage(start) {
+  const sp = effectiveServerPaging.value
+  if (!sp) return
 
-async function refreshFromApi() {
-  if (!isSubQueryList.value) return
-  if (internalLoading.value) return
-
-  const request = query.value?.request
-  const queryName = query.value?.name
-  const recordId = props.record?.recordId
-
-  if (!request || !queryName || !recordId) return
-
+  const limit = Number(sp.limit) > 0 ? Number(sp.limit) : 200
   internalLoading.value = true
   try {
-    const link = query.value?.link?.name
-    const filter = link ? [{ property: link, value: recordId }] : []
+    let res
+    if (sp.kind === 'read') {
+      res = await client.read({
+        request: sp.request,
+        period: sp.period ?? { start: null, finish: null },
+        start,
+        limit,
+      })
+    } else if (sp.kind === 'readQuery') {
+      res = await client.readQuery({
+        request: sp.request,
+        query: sp.query,
+        fields: sp.fields,
+        filter: sp.filter,
+        sort: sp.sort,
+        values: sp.values,
+        start,
+        limit,
+      })
+    } else {
+      return
+    }
 
-    const fields = Array.isArray(query.value?.fields)
-      ? query.value.fields.map((f) => f?.name).filter(Boolean)
-      : []
+    let rows = Array.isArray(res?.data) ? res.data : []
+    if (!rows.length && sp.kind === 'readQuery') {
+      const fallback =
+        query.value?.name === 'прик' ? (readPrik?.data ?? []) : (readSrOnline?.data ?? [])
+      rows = Array.isArray(fallback) ? fallback : []
+    }
 
-    const sort = Array.isArray(query.value?.sort) ? query.value.sort : []
-    const values = { recordId }
+    serverPageRows.value = rows
+    pageStart.value = start
+    pageLimit.value = limit
 
-    const res = await client.readQuery({
-      request,
-      query: queryName,
-      fields,
-      filter,
-      sort,
-      values,
-      start: 0,
-      limit: 200,
-    })
+    let total
+    if (rows.length < limit) {
+      total = start + rows.length
+    } else {
+      try {
+        let countRes
+        if (sp.kind === 'read') {
+          countRes = await client.read({
+            request: sp.request,
+            period: sp.period ?? { start: null, finish: null },
+            start,
+            limit,
+            count: true,
+          })
+        } else {
+          countRes = await client.readQuery({
+            request: sp.request,
+            query: sp.query,
+            fields: sp.fields,
+            filter: sp.filter,
+            sort: sp.sort,
+            values: sp.values,
+            start,
+            limit,
+            count: true,
+          })
+        }
+        const raw = countRes?.total
+        total = typeof raw === 'number' ? raw : Number(raw)
+        if (!Number.isFinite(total)) total = null
+      } catch {
+        total = null
+      }
+    }
+    pageTotal.value = total
 
-    remoteRows.value = Array.isArray(res?.data) ? res.data : []
-  } catch {
-    const fallback = query.value?.name === 'прик' ? (readPrik?.data ?? []) : (readSrOnline?.data ?? [])
-    remoteRows.value = Array.isArray(fallback) ? fallback : []
+    emit('server-response', res)
+    syncSelectionAfterLoad(rows)
   } finally {
     internalLoading.value = false
   }
 }
 
+function goPrevPage() {
+  if (!canPrevPage.value) return
+  loadPage(Math.max(0, pageStart.value - pageLimit.value))
+}
+
+function goNextPage() {
+  if (!canNextPage.value) return
+  loadPage(pageStart.value + pageLimit.value)
+}
+
+async function reload() {
+  await loadPage(0)
+}
+
+defineExpose({ reload })
+
 watch(
-  () => props.record?.recordId,
+  pagingFingerprint,
   () => {
-    remoteRows.value = null
-    refreshFromApi()
+    const sp = effectiveServerPaging.value
+    if (!sp) {
+      serverPageRows.value = []
+      pageStart.value = 0
+      pageTotal.value = null
+      return
+    }
+    loadPage(0)
   },
   { immediate: true }
 )
@@ -185,12 +338,12 @@ watch(
           type="button"
           class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="effectiveLoading"
-          @click="isSubQueryList ? refreshFromApi() : onRefreshClick()"
+          @click="onRefreshClick"
         >
           {{ effectiveLoading ? '...' : 'Обновить' }}
         </button>
         <div class="shrink-0 rounded bg-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700">
-          {{ sortedRows.length }}
+          {{ useServerPaging ? rangeLabel : sortedRows.length }}
         </div>
       </div>
     </div>
@@ -199,46 +352,78 @@ watch(
       Нет описания колонок в `query.columns`.
     </div>
 
-    <div v-else-if="!sortedRows.length" class="shrink-0 text-xs text-slate-600">
-      Нет данных для текущей записи.
-    </div>
+    <template v-else>
+      <div v-if="!sortedRows.length" class="shrink-0 text-xs text-slate-600">
+        Нет данных для текущей записи.
+      </div>
 
-    <div
-      v-else
-      :class="fillHeight ? 'min-h-0 flex-1 overflow-auto' : 'max-h-80 overflow-auto'"
-    >
-      <table class="min-w-full border-separate border-spacing-0">
-        <thead>
-          <tr>
-            <th
-              v-for="(c, idx) in columns"
-              :key="c?.name ?? idx"
-              class="sticky top-0 border-b border-slate-200 bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-700"
+      <div
+        v-else
+        :class="fillHeight ? 'min-h-0 flex-1 overflow-auto' : 'max-h-80 overflow-auto'"
+      >
+        <table class="min-w-full border-separate border-spacing-0">
+          <thead>
+            <tr>
+              <th
+                v-for="(c, idx) in columns"
+                :key="c?.name ?? idx"
+                class="sticky top-0 border-b border-slate-200 bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-700"
+              >
+                {{ c?.header ?? c?.name ?? '—' }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(row, ridx) in sortedRows"
+              :key="row?.recordId ?? row?.[`${query?.name}.recordId`] ?? ridx"
+              class="odd:bg-white/60"
+              :class="
+                selectable &&
+                ((selectedKey != null && rowKey && row?.[rowKey] === selectedKey) ||
+                  (selectedKey == null && ridx === selectedIndex))
+                  ? 'bg-slate-200/60'
+                  : ''
+              "
+              @click="onRowClick(row, ridx)"
             >
-              {{ c?.header ?? c?.name ?? '—' }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="(row, ridx) in sortedRows"
-            :key="row?.recordId ?? row?.[`${query?.name}.recordId`] ?? ridx"
-            class="odd:bg-white/60"
-            :class="selectable && ((selectedKey != null && rowKey && row?.[rowKey] === selectedKey) || (selectedKey == null && ridx === selectedIndex)) ? 'bg-slate-200/60' : ''"
-            @click="onRowClick(row, ridx)"
+              <td
+                v-for="(c, cidx) in columns"
+                :key="c?.name ?? cidx"
+                class="border-b border-slate-200 px-2 py-1 text-xs text-slate-800"
+                :class="selectable ? 'cursor-pointer' : ''"
+              >
+                <span class="whitespace-nowrap">{{ formatCellValue(c, row?.[c?.name]) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        v-if="useServerPaging"
+        class="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-2"
+      >
+        <span class="text-[11px] text-slate-600">{{ rangeLabel }}</span>
+        <div class="flex gap-1">
+          <button
+            type="button"
+            class="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canPrevPage || effectiveLoading"
+            @click="goPrevPage"
           >
-            <td
-              v-for="(c, cidx) in columns"
-              :key="c?.name ?? cidx"
-              class="border-b border-slate-200 px-2 py-1 text-xs text-slate-800"
-              :class="selectable ? 'cursor-pointer' : ''"
-            >
-              <span class="whitespace-nowrap">{{ formatCellValue(c, row?.[c?.name]) }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            Назад
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canNextPage || effectiveLoading"
+            @click="goNextPage"
+          >
+            Вперёд
+          </button>
+        </div>
+      </div>
+    </template>
   </section>
 </template>
-

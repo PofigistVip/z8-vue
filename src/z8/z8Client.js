@@ -80,16 +80,19 @@ export class Z8Client {
     start = 0,
     limit = 200,
     period = { start: null, finish: null },
+    count = false,
   }) {
     this.requireSession()
-    return await this.postForm({
+    const fields = {
       action: 'read',
       request,
       period,
       start,
       limit,
       session: this.session,
-    })
+    }
+    if (count) fields.count = 'true'
+    return await this.postForm(fields)
   }
 
   async readQuery({
@@ -102,9 +105,10 @@ export class Z8Client {
     start = 0,
     limit = 200,
     action = 'read',
+    count = false,
   }) {
     this.requireSession()
-    return await this.postForm({
+    const payload = {
       action,
       request,
       query,
@@ -115,6 +119,8 @@ export class Z8Client {
       start,
       limit,
       session: this.session,
-    })
+    }
+    if (count) payload.count = 'true'
+    return await this.postForm(payload)
   }
 }

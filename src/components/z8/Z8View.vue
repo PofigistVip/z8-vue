@@ -1,9 +1,8 @@
 <script setup>
-import { computed, inject, ref, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 
 import Z8Form from './Z8Form.vue'
 import Z8Listbox from './Z8Listbox.vue'
-import { Z8Client } from '../../z8/z8Client.js'
 
 const props = defineProps({
   spec: { type: Object, required: true },
@@ -14,10 +13,29 @@ const props = defineProps({
   viewId: { type: String, default: '' },
 })
 
-const injectedClient = inject('z8Client', null)
-const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Client()
-
 const specState = ref(props.spec)
+const listboxRef = ref(null)
+
+const listServerPaging = shallowRef({
+  kind: 'read',
+  request: props.viewRequest,
+  period: { start: null, finish: null },
+  limit: 200,
+})
+
+watch(
+  () => props.viewRequest,
+  (r) => {
+    listServerPaging.value = {
+      kind: 'read',
+      request: r,
+      period: { start: null, finish: null },
+      limit: 200,
+    }
+  },
+  { immediate: true }
+)
+
 watch(
   () => props.spec,
   (next) => {
@@ -41,7 +59,6 @@ const selectedIndex = computed(() => {
   return idx >= 0 ? idx : 0
 })
 const selectedRecord = computed(() => records.value[selectedIndex.value] ?? null)
-const listLoading = ref(false)
 
 const listColumns = computed(() => {
   const controls = Array.isArray(specState.value?.controls) ? specState.value.controls : []
@@ -79,12 +96,12 @@ const listboxControl = computed(() => {
       text: specState.value?.text ?? 'Records',
       columns: listColumns.value,
     },
-    data: records.value,
+    serverPaging: listServerPaging.value,
     selectable: true,
     selectedIndex: selectedIndex.value,
     rowKey: 'recordId',
     selectedKey: selectedRecordId.value,
-    loading: listLoading.value,
+    loading: false,
   }
 })
 
@@ -93,27 +110,13 @@ function onSelectRow(payload) {
   if (typeof key === 'string' && key) selectedRecordId.value = key
 }
 
+function onServerResponse(res) {
+  const d = Array.isArray(res?.data) ? res.data : []
+  specState.value = { ...specState.value, ...res, data: d }
+}
+
 async function refreshMainList() {
-  if (listLoading.value) return
-  listLoading.value = true
-  try {
-    const res = await client.read({
-      request: props.viewRequest,
-      period: { start: null, finish: null },
-      start: 0,
-      limit: 200,
-    })
-
-    const nextData = Array.isArray(res?.data) ? res.data : []
-    specState.value = { ...specState.value, ...res, data: nextData }
-
-    if (!selectedRecordId.value && nextData[0]?.recordId) selectedRecordId.value = nextData[0].recordId
-    if (selectedRecordId.value && !nextData.some((r) => r?.recordId === selectedRecordId.value)) {
-      selectedRecordId.value = nextData[0]?.recordId ?? null
-    }
-  } finally {
-    listLoading.value = false
-  }
+  await listboxRef.value?.reload?.()
 }
 </script>
 
@@ -121,10 +124,12 @@ async function refreshMainList() {
   <div class="flex h-full min-h-0 gap-4">
     <aside class="flex w-[360px] shrink-0 min-h-0 flex-col">
       <Z8Listbox
+        ref="listboxRef"
         :control="listboxControl"
         :record="{}"
         @select-row="onSelectRow"
         @refresh="refreshMainList"
+        @server-response="onServerResponse"
       />
     </aside>
 
