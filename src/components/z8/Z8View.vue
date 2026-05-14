@@ -1,8 +1,13 @@
 <script setup>
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, inject, ref, shallowRef, watch } from 'vue'
 
+import { Z8Client } from '../../z8/z8Client.js'
+import Z8ActionParamsDialog from './Z8ActionParamsDialog.vue'
 import Z8Form from './Z8Form.vue'
 import Z8Listbox from './Z8Listbox.vue'
+
+const injectedClient = inject('z8Client', null)
+const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Client()
 
 const props = defineProps({
   spec: { type: Object, required: true },
@@ -15,6 +20,25 @@ const props = defineProps({
 
 const specState = ref(props.spec)
 const listboxRef = ref(null)
+
+const actionDialogOpen = ref(false)
+const pendingAction = shallowRef(null)
+const parameterDraft = ref([])
+const actionDialogError = ref('')
+
+function closeActionDialog() {
+  actionDialogOpen.value = false
+  pendingAction.value = null
+  parameterDraft.value = []
+  actionDialogError.value = ''
+}
+
+const actionDialogTitle = computed(() => {
+  const a = pendingAction.value
+  if (!a) return ''
+  if (typeof a.header === 'string' && a.header) return a.header
+  return typeof a.name === 'string' ? a.name : ''
+})
 
 const listServerPaging = shallowRef({
   kind: 'read',
@@ -41,6 +65,8 @@ watch(
   (next) => {
     specState.value = next
     selectedRecordId.value = null
+    actionError.value = null
+    closeActionDialog()
   }
 )
 
@@ -48,6 +74,8 @@ watch(
   () => [props.viewRequest, props.viewId],
   () => {
     selectedRecordId.value = null
+    actionError.value = null
+    closeActionDialog()
   }
 )
 
@@ -59,6 +87,16 @@ const selectedIndex = computed(() => {
   return idx >= 0 ? idx : 0
 })
 const selectedRecord = computed(() => records.value[selectedIndex.value] ?? null)
+
+const toolbarActions = computed(() => {
+  const raw = Array.isArray(specState.value?.actions) ? specState.value.actions : []
+  return raw.filter(
+    (a) => a && a.isAction === true && typeof a.name === 'string' && a.name.length > 0
+  )
+})
+
+const actionSubmitting = ref(false)
+const actionError = ref(null)
 
 const listColumns = computed(() => {
   const nameFields = Array.isArray(specState.value?.nameFields) ? specState.value.nameFields : []
@@ -131,10 +169,104 @@ function onServerResponse(res) {
 async function refreshMainList() {
   await listboxRef.value?.reload?.()
 }
+
+function cloneActionParameters(list) {
+  try {
+    return JSON.parse(JSON.stringify(list))
+  } catch {
+    return []
+  }
+}
+
+async function executeAction(action, parameters) {
+  const rid = selectedRecordId.value
+  if (!rid || typeof action?.name !== 'string') return
+  actionError.value = null
+  actionDialogError.value = ''
+  actionSubmitting.value = true
+  try {
+    const req =
+      typeof action.request === 'string' && action.request.trim()
+        ? action.request.trim()
+        : props.viewRequest
+    await client.action({
+      request: req,
+      name: action.name,
+      records: [rid],
+      parameters: Array.isArray(parameters) ? parameters : [],
+    })
+    await refreshMainList()
+    closeActionDialog()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (actionDialogOpen.value) actionDialogError.value = msg
+    else actionError.value = msg
+  } finally {
+    actionSubmitting.value = false
+  }
+}
+
+function runToolbarAction(action) {
+  const rid = selectedRecordId.value
+  if (!rid || typeof action?.name !== 'string') return
+  actionError.value = null
+  if (Array.isArray(action.parameters) && action.parameters.length > 0) {
+    pendingAction.value = action
+    parameterDraft.value = cloneActionParameters(action.parameters)
+    actionDialogOpen.value = true
+    actionDialogError.value = ''
+    return
+  }
+  void executeAction(action, [])
+}
+
+function onActionDialogSubmit() {
+  const a = pendingAction.value
+  if (!a) return
+  void executeAction(a, parameterDraft.value)
+}
+
+function onActionDialogCancel() {
+  closeActionDialog()
+}
+
+function isToolbarActionDisabled(action) {
+  return (
+    actionSubmitting.value ||
+    Boolean(action?.readOnly) ||
+    !selectedRecordId.value
+  )
+}
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 gap-4">
+  <div class="flex h-full min-h-0 flex-col gap-2">
+    <template v-if="toolbarActions.length > 0">
+      <div class="shrink-0 flex flex-col gap-2">
+        <div
+          class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
+        >
+          <button
+            v-for="(act, idx) in toolbarActions"
+            :key="`${act.name}-${idx}`"
+            type="button"
+            class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="isToolbarActionDisabled(act)"
+            @click="runToolbarAction(act)"
+          >
+            {{ typeof act.header === 'string' && act.header ? act.header : act.name }}
+          </button>
+        </div>
+        <div
+          v-if="actionError"
+          class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+        >
+          {{ actionError }}
+        </div>
+      </div>
+    </template>
+
+    <div class="flex min-h-0 flex-1 gap-4">
     <aside class="flex w-[360px] shrink-0 min-h-0 flex-col">
       <Z8Listbox
         ref="listboxRef"
@@ -154,5 +286,16 @@ async function refreshMainList() {
         <Z8Form :spec="specState" :record="selectedRecord" />
       </div>
     </section>
+    </div>
+
+    <Z8ActionParamsDialog
+      v-model="actionDialogOpen"
+      :title="actionDialogTitle"
+      :parameters="parameterDraft"
+      :submitting="actionSubmitting"
+      :error="actionDialogError"
+      @submit="onActionDialogSubmit"
+      @cancel="onActionDialogCancel"
+    />
   </div>
 </template>

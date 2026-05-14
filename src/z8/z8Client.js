@@ -123,4 +123,28 @@ export class Z8Client {
     if (count) payload.count = 'true'
     return await this.postForm(payload)
   }
+
+  async action({ request, name, records, parameters = [] }) {
+    this.requireSession()
+    const rec = Array.isArray(records) ? records : []
+    const params = Array.isArray(parameters) ? parameters : []
+    const json = await this.postForm({
+      request,
+      action: 'action',
+      name,
+      records: rec,
+      parameters: params,
+      session: this.session,
+    })
+    if (json?.success !== true) {
+      const msg =
+        typeof json?.message === 'string'
+          ? json.message
+          : typeof json?.error === 'string'
+            ? json.error
+            : JSON.stringify(json ?? {})
+      throw new Error(msg || 'Action failed')
+    }
+    return json
+  }
 }
