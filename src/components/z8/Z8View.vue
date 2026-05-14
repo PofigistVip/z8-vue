@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import Z8Form from './Z8Form.vue'
 import Z8Listbox from './Z8Listbox.vue'
@@ -10,6 +10,13 @@ const props = defineProps({
 })
 
 const specState = ref(props.spec)
+watch(
+  () => props.spec,
+  (next) => {
+    specState.value = next
+  }
+)
+
 const records = computed(() => Array.isArray(specState.value?.data) ? specState.value.data : [])
 const selectedRecordId = ref(null)
 const selectedIndex = computed(() => {

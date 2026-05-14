@@ -27,6 +27,19 @@ export class Z8Client {
     return await res.json()
   }
 
+  async meta({
+    request,
+    id,
+    period = { start: null, finish: null },
+  }) {
+    return await this.postForm({
+      request,
+      id,
+      period,
+      session: this.session,
+    })
+  }
+
   async read({
     request,
     start = 0,
