@@ -3,7 +3,12 @@ import { computed, provide, ref } from 'vue'
 
 import NavEntry from './components/NavEntry.vue'
 import Z8View from './components/z8/Z8View.vue'
-import { applyLoginResponse, clearUserStore, useUserStore } from './stores/userStore.js'
+import {
+  applyLoginResponse,
+  clearUserStore,
+  menuLeafKey,
+  useUserStore,
+} from './stores/userStore.js'
 import { Z8Client } from './z8/z8Client.js'
 
 const client = new Z8Client()
@@ -23,10 +28,6 @@ const activeViewRequest = ref('')
 const activeViewId = ref('')
 const loading = ref(false)
 const error = ref(null)
-
-function navEntryKey(entry) {
-  return `${entry.request}\u0000${entry.id ?? ''}`
-}
 
 function metaIdForEntry(entry) {
   const id = String(entry.id ?? '').trim()
@@ -75,8 +76,8 @@ function logout() {
 }
 
 async function openNavEntry(entry) {
-  if (!entry?.request) return
-  activeNavKey.value = navEntryKey(entry)
+  if (!entry?.request?.trim()) return
+  activeNavKey.value = menuLeafKey(entry)
   activeViewRequest.value = entry.request
   activeViewId.value = entry.id ?? ''
   error.value = null
@@ -159,7 +160,7 @@ const userLabel = computed(() => {
 
     <template v-else>
       <aside class="flex w-60 shrink-0 flex-col border-r bg-white">
-        <div class="border-b px-4 py-3">
+        <div class="shrink-0 border-b px-4 py-3">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Навигация</div>
           <div v-if="userLabel" class="mt-1 truncate text-sm font-medium text-slate-800">
             {{ userLabel }}
@@ -173,10 +174,11 @@ const userLabel = computed(() => {
           </button>
         </div>
 
-        <nav class="min-h-0 flex-1 overflow-y-auto p-2">
+        <nav class="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
           <NavEntry
             :entries="userStore.navEntries"
             :active-key="activeNavKey"
+            class="flex min-h-0 min-w-0 flex-1"
             @select="openNavEntry"
           />
         </nav>
