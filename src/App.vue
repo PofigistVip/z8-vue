@@ -2,6 +2,7 @@
 import { computed, provide, ref } from 'vue'
 
 import NavEntry from './components/NavEntry.vue'
+import Z8MessageToasts from './components/Z8MessageToasts.vue'
 import Z8View from './components/z8/Z8View.vue'
 import {
   applyLoginResponse,
@@ -109,6 +110,7 @@ const userLabel = computed(() => {
 
 <template>
   <div class="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
+    <Z8MessageToasts />
     <template v-if="!authenticated">
       <main class="flex min-h-0 flex-1 items-center justify-center p-6">
         <form

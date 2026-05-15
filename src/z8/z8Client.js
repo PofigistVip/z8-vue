@@ -1,3 +1,5 @@
+import { pushInfoMessages } from '../stores/z8MessageStore.js'
+
 export class Z8Client {
   constructor(options = {}) {
     this.url = options.url ?? '/request.json'
@@ -34,7 +36,9 @@ export class Z8Client {
       throw new Error(`Z8 request failed: ${res.status} ${res.statusText}${text ? `\n${text}` : ''}`)
     }
 
-    return await res.json()
+    const json = await res.json()
+    pushInfoMessages(json?.info?.messages)
+    return json
   }
 
   async login({ login, password }) {
