@@ -20,6 +20,7 @@ const props = defineProps({
 
 const specState = ref(props.spec)
 const listboxRef = ref(null)
+const viewMode = ref('standard')
 
 const actionDialogOpen = ref(false)
 const pendingAction = shallowRef(null)
@@ -31,6 +32,10 @@ function closeActionDialog() {
   pendingAction.value = null
   parameterDraft.value = []
   actionDialogError.value = ''
+}
+
+function resetViewMode() {
+  viewMode.value = 'standard'
 }
 
 const actionDialogTitle = computed(() => {
@@ -67,6 +72,7 @@ watch(
     selectedRecordId.value = null
     actionError.value = null
     closeActionDialog()
+    resetViewMode()
   }
 )
 
@@ -76,6 +82,7 @@ watch(
     selectedRecordId.value = null
     actionError.value = null
     closeActionDialog()
+    resetViewMode()
   }
 )
 
@@ -88,6 +95,9 @@ const selectedIndex = computed(() => {
 })
 const selectedRecord = computed(() => records.value[selectedIndex.value] ?? null)
 
+const isStandardMode = computed(() => viewMode.value === 'standard')
+const isTableMode = computed(() => viewMode.value === 'table')
+
 const toolbarActions = computed(() => {
   const raw = Array.isArray(specState.value?.actions) ? specState.value.actions : []
   return raw.filter(
@@ -98,9 +108,9 @@ const toolbarActions = computed(() => {
 const actionSubmitting = ref(false)
 const actionError = ref(null)
 
-const listColumns = computed(() => {
-  const nameFields = Array.isArray(specState.value?.nameFields) ? specState.value.nameFields : []
-  const fromNameFields = nameFields
+function normalizeColumnList(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw
     .map((c) => {
       if (!c || typeof c.name !== 'string' || typeof c.header !== 'string') return null
       return {
@@ -110,6 +120,13 @@ const listColumns = computed(() => {
       }
     })
     .filter(Boolean)
+}
+
+const tableColumns = computed(() => normalizeColumnList(specState.value?.columns))
+const hasTableView = computed(() => tableColumns.value.length > 0)
+
+const listColumns = computed(() => {
+  const fromNameFields = normalizeColumnList(specState.value?.nameFields)
   if (fromNameFields.length > 0) return fromNameFields
 
   const controls = Array.isArray(specState.value?.controls) ? specState.value.controls : []
@@ -136,16 +153,16 @@ const listColumns = computed(() => {
   ]
 })
 
-const listboxControl = computed(() => {
+function buildListboxControl({ name, header, columns, queryName }) {
   return {
-    name: 'recordsList',
-    header: 'Записи',
+    name,
+    header,
     isListbox: true,
     fillHeight: true,
     query: {
-      name: '__records__',
+      name: queryName,
       text: specState.value?.text ?? 'Records',
-      columns: listColumns.value,
+      columns,
     },
     serverPaging: listServerPaging.value,
     selectable: true,
@@ -154,7 +171,25 @@ const listboxControl = computed(() => {
     selectedKey: selectedRecordId.value,
     loading: false,
   }
-})
+}
+
+const listboxControl = computed(() =>
+  buildListboxControl({
+    name: 'recordsList',
+    header: 'Записи',
+    columns: listColumns.value,
+    queryName: '__records__',
+  })
+)
+
+const tableListboxControl = computed(() =>
+  buildListboxControl({
+    name: 'recordsTable',
+    header: specState.value?.text ?? 'Записи',
+    columns: tableColumns.value,
+    queryName: '__table__',
+  })
+)
 
 function onSelectRow(payload) {
   const key = payload?.key
@@ -241,51 +276,94 @@ function isToolbarActionDisabled(action) {
 
 <template>
   <div class="flex h-full min-h-0 flex-col gap-2">
-    <template v-if="toolbarActions.length > 0">
-      <div class="shrink-0 flex flex-col gap-2">
+    <div class="shrink-0 flex flex-col gap-2">
+      <div
+        class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
+      >
         <div
-          class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
+          class="inline-flex rounded-md border border-slate-300 p-0.5"
+          role="group"
+          aria-label="Режим отображения"
         >
           <button
-            v-for="(act, idx) in toolbarActions"
-            :key="`${act.name}-${idx}`"
             type="button"
-            class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="isToolbarActionDisabled(act)"
-            @click="runToolbarAction(act)"
+            class="rounded px-3 py-1.5 text-sm font-medium transition-colors"
+            :class="
+              isStandardMode
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-700 hover:bg-slate-50'
+            "
+            @click="viewMode = 'standard'"
           >
-            {{ typeof act.header === 'string' && act.header ? act.header : act.name }}
+            Стандартная
+          </button>
+          <button
+            type="button"
+            class="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            :class="
+              isTableMode
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-700 hover:bg-slate-50'
+            "
+            :disabled="!hasTableView"
+            @click="viewMode = 'table'"
+          >
+            Табличная
           </button>
         </div>
-        <div
-          v-if="actionError"
-          class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-        >
-          {{ actionError }}
-        </div>
-      </div>
-    </template>
 
-    <div class="flex min-h-0 flex-1 gap-4">
-    <aside class="flex w-[360px] shrink-0 min-h-0 flex-col">
+        <button
+          v-for="(act, idx) in toolbarActions"
+          :key="`${act.name}-${idx}`"
+          type="button"
+          class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="isToolbarActionDisabled(act)"
+          @click="runToolbarAction(act)"
+        >
+          {{ typeof act.header === 'string' && act.header ? act.header : act.name }}
+        </button>
+      </div>
+      <div
+        v-if="actionError"
+        class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+      >
+        {{ actionError }}
+      </div>
+    </div>
+
+    <div v-if="isStandardMode" class="flex min-h-0 flex-1 gap-4">
+      <aside class="flex w-[360px] shrink-0 min-h-0 flex-col">
+        <Z8Listbox
+          :key="viewMode"
+          ref="listboxRef"
+          :control="listboxControl"
+          :record="{}"
+          @select-row="onSelectRow"
+          @refresh="refreshMainList"
+          @server-response="onServerResponse"
+        />
+      </aside>
+
+      <section class="flex min-w-0 flex-1 min-h-0 flex-col">
+        <div v-if="!selectedRecord" class="rounded-lg border bg-white p-4 text-sm text-slate-600">
+          Нет записей.
+        </div>
+        <div v-else class="min-h-0 flex-1 overflow-hidden">
+          <Z8Form :spec="specState" :record="selectedRecord" />
+        </div>
+      </section>
+    </div>
+
+    <div v-else class="flex min-h-0 flex-1 flex-col">
       <Z8Listbox
+        :key="viewMode"
         ref="listboxRef"
-        :control="listboxControl"
+        :control="tableListboxControl"
         :record="{}"
         @select-row="onSelectRow"
         @refresh="refreshMainList"
         @server-response="onServerResponse"
       />
-    </aside>
-
-    <section class="flex min-w-0 flex-1 min-h-0 flex-col">
-      <div v-if="!selectedRecord" class="rounded-lg border bg-white p-4 text-sm text-slate-600">
-        Нет записей.
-      </div>
-      <div v-else class="min-h-0 flex-1 overflow-hidden">
-        <Z8Form :spec="specState" :record="selectedRecord" />
-      </div>
-    </section>
     </div>
 
     <Z8ActionParamsDialog
