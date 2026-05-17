@@ -128,6 +128,51 @@ export class Z8Client {
     return await this.postForm(payload)
   }
 
+  async create({
+    request,
+    data = [{ recordId: '00000000-0000-0000-0000-000000000000' }],
+  }) {
+    this.requireSession()
+    const payload = Array.isArray(data) ? data : []
+    const json = await this.postForm({
+      request,
+      action: 'create',
+      data: payload,
+      session: this.session,
+    })
+    if (json?.success !== true) {
+      const msg =
+        typeof json?.message === 'string'
+          ? json.message
+          : typeof json?.error === 'string'
+            ? json.error
+            : JSON.stringify(json ?? {})
+      throw new Error(msg || 'Create failed')
+    }
+    return json
+  }
+
+  async destroy({ request, data }) {
+    this.requireSession()
+    const payload = Array.isArray(data) ? data : []
+    const json = await this.postForm({
+      request,
+      action: 'destroy',
+      data: payload,
+      session: this.session,
+    })
+    if (json?.success !== true) {
+      const msg =
+        typeof json?.message === 'string'
+          ? json.message
+          : typeof json?.error === 'string'
+            ? json.error
+            : JSON.stringify(json ?? {})
+      throw new Error(msg || 'Destroy failed')
+    }
+    return json
+  }
+
   async action({ request, name, records, parameters = [] }) {
     this.requireSession()
     const rec = Array.isArray(records) ? records : []

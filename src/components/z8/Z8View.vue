@@ -106,6 +106,8 @@ const toolbarActions = computed(() => {
 })
 
 const actionSubmitting = ref(false)
+const createSubmitting = ref(false)
+const destroySubmitting = ref(false)
 const actionError = ref(null)
 
 function normalizeColumnList(raw) {
@@ -193,7 +195,11 @@ const tableListboxControl = computed(() =>
 
 function onSelectRow(payload) {
   const key = payload?.key
-  if (typeof key === 'string' && key) selectedRecordId.value = key
+  if (typeof key === 'string' && key) {
+    selectedRecordId.value = key
+  } else if (key === undefined) {
+    selectedRecordId.value = null
+  }
 }
 
 function onServerResponse(res) {
@@ -268,9 +274,70 @@ function onActionDialogCancel() {
 function isToolbarActionDisabled(action) {
   return (
     actionSubmitting.value ||
+    createSubmitting.value ||
+    destroySubmitting.value ||
     Boolean(action?.readOnly) ||
     !selectedRecordId.value
   )
+}
+
+function removeRecordFromState(recordId) {
+  const prev = Array.isArray(specState.value?.data) ? specState.value.data : []
+  specState.value = {
+    ...specState.value,
+    data: prev.filter((r) => r?.recordId !== recordId),
+  }
+}
+
+function prependRecordToState(newRecord) {
+  const rid = newRecord?.recordId
+  if (!rid) throw new Error('Create response has no recordId')
+  const prev = Array.isArray(specState.value?.data) ? specState.value.data : []
+  specState.value = {
+    ...specState.value,
+    data: [newRecord, ...prev.filter((r) => r?.recordId !== rid)],
+  }
+}
+
+async function createNewRecord() {
+  actionError.value = null
+  createSubmitting.value = true
+  try {
+    const res = await client.create({ request: props.viewRequest })
+    const newRecord = res?.data?.[0]
+    if (!newRecord || typeof newRecord.recordId !== 'string') {
+      throw new Error('Create response has no record')
+    }
+    prependRecordToState(newRecord)
+    listboxRef.value?.prependRow?.(newRecord)
+    selectedRecordId.value = newRecord.recordId
+    viewMode.value = 'standard'
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    createSubmitting.value = false
+  }
+}
+
+async function destroySelectedRecord() {
+  const rid = selectedRecordId.value
+  if (!rid) return
+  actionError.value = null
+  destroySubmitting.value = true
+  try {
+    await client.destroy({
+      request: props.viewRequest,
+      data: [{ recordId: rid }],
+    })
+    removeRecordFromState(rid)
+    listboxRef.value?.removeRow?.(rid)
+    const remaining = Array.isArray(specState.value?.data) ? specState.value.data : []
+    selectedRecordId.value = remaining[0]?.recordId ?? null
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    destroySubmitting.value = false
+  }
 }
 </script>
 
@@ -280,6 +347,24 @@ function isToolbarActionDisabled(action) {
       <div
         class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
       >
+        <button
+          type="button"
+          class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="createSubmitting || destroySubmitting || actionSubmitting"
+          @click="createNewRecord"
+        >
+          {{ createSubmitting ? 'Создание…' : 'Новая запись' }}
+        </button>
+
+        <button
+          type="button"
+          class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="!selectedRecordId || createSubmitting || destroySubmitting || actionSubmitting"
+          @click="destroySelectedRecord"
+        >
+          {{ destroySubmitting ? 'Удаление…' : 'Удалить запись' }}
+        </button>
+
         <div
           class="inline-flex rounded-md border border-slate-300 p-0.5"
           role="group"

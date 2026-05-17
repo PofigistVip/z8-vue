@@ -303,7 +303,37 @@ async function reload() {
   await loadPage(0)
 }
 
-defineExpose({ reload })
+function prependRow(row) {
+  if (!row || !useServerPaging.value) return
+  const rk = rowKey.value ?? 'recordId'
+  const key = row[rk]
+  serverPageRows.value = [
+    row,
+    ...serverPageRows.value.filter((r) => r?.[rk] !== key),
+  ]
+  pageStart.value = 0
+  if (pageTotal.value != null && Number.isFinite(pageTotal.value)) {
+    pageTotal.value += 1
+  }
+  emit('select-row', { row, index: 0, key })
+}
+
+function removeRow(key) {
+  if (!key || !useServerPaging.value) return
+  const rk = rowKey.value ?? 'recordId'
+  const rows = serverPageRows.value.filter((r) => r?.[rk] !== key)
+  serverPageRows.value = rows
+  if (pageTotal.value != null && Number.isFinite(pageTotal.value) && pageTotal.value > 0) {
+    pageTotal.value -= 1
+  }
+  if (rows.length) {
+    emit('select-row', { row: rows[0], index: 0, key: rows[0]?.[rk] })
+  } else {
+    emit('select-row', { row: undefined, index: -1, key: undefined })
+  }
+}
+
+defineExpose({ reload, prependRow, removeRow })
 
 watch(
   pagingFingerprint,
