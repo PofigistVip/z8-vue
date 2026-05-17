@@ -36,24 +36,26 @@ const pageStart = ref(0)
 const pageTotal = ref(null)
 const pageLimit = ref(200)
 
-const isSubQueryList = computed(() => {
+const isMockQueryName = computed(() => {
   const name = query.value?.name
   return name === 'прик' || name === 'srOnline'
 })
 
 const builtReadQueryPaging = computed(() => {
-  if (!isSubQueryList.value) return null
-  const request = query.value?.request
-  const queryName = query.value?.name
+  const q = query.value
+  if (!q) return null
+  const request = q.request
+  const queryName = q.name
   const recordId = props.record?.recordId
   if (!request || !queryName || !recordId) return null
 
-  const link = query.value?.link?.name
+  const link = q.link?.name
   const filter = link ? [{ property: link, value: recordId }] : []
-  const fields = Array.isArray(query.value?.fields)
-    ? query.value.fields.map((f) => f?.name).filter(Boolean)
-    : []
-  const sort = Array.isArray(query.value?.sort) ? query.value.sort : []
+  let fields = Array.isArray(q.fields) ? q.fields.map((f) => f?.name).filter(Boolean) : []
+  if (!fields.length && Array.isArray(q.columns)) {
+    fields = q.columns.map((c) => c?.name).filter(Boolean)
+  }
+  const sort = Array.isArray(q.sort) ? q.sort : []
   const values = { recordId }
 
   return {
@@ -87,9 +89,11 @@ const pagingFingerprint = computed(() => {
 const dataset = computed(() => {
   if (useServerPaging.value) return Array.isArray(serverPageRows.value) ? serverPageRows.value : []
   if (Array.isArray(props.control?.data)) return props.control.data
-  const name = query.value?.name
-  if (name === 'прик') return z8prik?.data ?? []
-  if (name === 'srOnline') return z8srOnline?.data ?? []
+  if (isMockQueryName.value) {
+    const name = query.value?.name
+    if (name === 'прик') return z8prik?.data ?? []
+    if (name === 'srOnline') return z8srOnline?.data ?? []
+  }
   return []
 })
 
@@ -236,7 +240,7 @@ async function loadPage(start) {
     }
 
     let rows = Array.isArray(res?.data) ? res.data : []
-    if (!rows.length && sp.kind === 'readQuery') {
+    if (!rows.length && sp.kind === 'readQuery' && isMockQueryName.value) {
       const fallback =
         query.value?.name === 'прик' ? (readPrik?.data ?? []) : (readSrOnline?.data ?? [])
       rows = Array.isArray(fallback) ? fallback : []
