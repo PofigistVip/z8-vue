@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, provide } from 'vue'
 
 import Z8ControlRenderer from './Z8ControlRenderer.vue'
 import { uiRegistry } from '../../z8/uiRegistry'
@@ -8,6 +8,11 @@ const props = defineProps({
   spec: { type: Object, required: true },
   record: { type: Object, required: true },
 })
+
+provide(
+  'z8FormRequest',
+  computed(() => props.spec?.request ?? props.spec?.sourceCode ?? '')
+)
 const controls = computed(() => Array.isArray(props.spec?.controls) ? props.spec.controls : [])
 const colCount = computed(() => {
   const v = Number.parseInt(String(props.spec?.colCount ?? ''), 10)
