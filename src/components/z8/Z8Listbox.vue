@@ -72,19 +72,40 @@ const builtReadQueryPaging = computed(() => {
 
 const effectiveServerPaging = computed(() => props.control?.serverPaging ?? builtReadQueryPaging.value)
 
-const useServerPaging = computed(() => Boolean(effectiveServerPaging.value))
+const userSort = ref(null)
 
-const pagingFingerprint = computed(() => {
+const requestSort = computed(() => {
+  if (userSort.value) {
+    return [{ property: userSort.value.property, direction: userSort.value.direction }]
+  }
+  const sp = effectiveServerPaging.value
+  if (sp?.kind === 'readQuery' && Array.isArray(sp.sort) && sp.sort.length) {
+    return sp.sort
+  }
+  return []
+})
+
+const pagingWithSort = computed(() => {
+  const sp = effectiveServerPaging.value
+  if (!sp) return null
+  return { ...sp, sort: requestSort.value }
+})
+
+const serverPagingBaseKey = computed(() => {
   const sp = effectiveServerPaging.value
   if (!sp) return ''
   if (sp.kind === 'read') {
     return `read|${sp.request}|${JSON.stringify(sp.period ?? null)}|${Number(sp.limit) || 200}`
   }
   if (sp.kind === 'readQuery') {
-    return `rq|${sp.request}|${sp.query}|${Number(sp.limit) || 200}|${JSON.stringify(sp.filter ?? null)}|${JSON.stringify(sp.sort ?? null)}|${JSON.stringify(sp.values ?? null)}`
+    return `rq|${sp.request}|${sp.query}|${Number(sp.limit) || 200}|${JSON.stringify(sp.filter ?? null)}|${JSON.stringify(sp.values ?? null)}`
   }
   return ''
 })
+
+const useServerPaging = computed(() => Boolean(effectiveServerPaging.value))
+
+const pagingBaseFingerprint = computed(() => serverPagingBaseKey.value)
 
 const dataset = computed(() => {
   if (useServerPaging.value) return Array.isArray(serverPageRows.value) ? serverPageRows.value : []
@@ -122,7 +143,8 @@ function toComparable(v) {
 
 const sortedRows = computed(() => {
   const rows = [...filteredRows.value]
-  const sort = Array.isArray(query.value?.sort) ? query.value.sort : []
+  if (useServerPaging.value) return rows
+  const sort = requestSort.value
   if (!sort.length) return rows
 
   rows.sort((a, b) => {
@@ -198,6 +220,20 @@ function onRefreshClick() {
   emit('refresh')
 }
 
+function onSortHeader(col) {
+  const prop = col?.name
+  if (!prop) return
+  if (userSort.value?.property === prop) {
+    userSort.value = {
+      property: prop,
+      direction: userSort.value.direction === 'asc' ? 'desc' : 'asc',
+    }
+  } else {
+    userSort.value = { property: prop, direction: 'asc' }
+  }
+  if (useServerPaging.value) loadPage(0)
+}
+
 function syncSelectionAfterLoad(rows) {
   if (!selectable.value || !rows.length) return
   const rk = rowKey.value
@@ -210,10 +246,11 @@ function syncSelectionAfterLoad(rows) {
 }
 
 async function loadPage(start) {
-  const sp = effectiveServerPaging.value
+  const sp = pagingWithSort.value
   if (!sp) return
 
   const limit = Number(sp.limit) > 0 ? Number(sp.limit) : 200
+  const sort = Array.isArray(sp.sort) && sp.sort.length ? sp.sort : undefined
   internalLoading.value = true
   try {
     let res
@@ -223,6 +260,7 @@ async function loadPage(start) {
         period: sp.period ?? { start: null, finish: null },
         start,
         limit,
+        sort,
       })
     } else if (sp.kind === 'readQuery') {
       res = await client.readQuery({
@@ -230,7 +268,7 @@ async function loadPage(start) {
         query: sp.query,
         fields: sp.fields,
         filter: sp.filter,
-        sort: sp.sort,
+        sort: sp.sort ?? [],
         values: sp.values,
         start,
         limit,
@@ -339,10 +377,14 @@ function removeRow(key) {
 
 defineExpose({ reload, prependRow, removeRow })
 
+watch(serverPagingBaseKey, (newKey, oldKey) => {
+  if (newKey !== oldKey) userSort.value = null
+})
+
 watch(
-  pagingFingerprint,
+  pagingBaseFingerprint,
   () => {
-    const sp = effectiveServerPaging.value
+    const sp = pagingWithSort.value
     if (!sp) {
       serverPageRows.value = []
       pageStart.value = 0
@@ -401,9 +443,19 @@ watch(
               <th
                 v-for="(c, idx) in columns"
                 :key="c?.name ?? idx"
-                class="sticky top-0 border-b border-slate-200 bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-700"
+                class="sticky top-0 cursor-pointer select-none border-b border-slate-200 bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                @click="onSortHeader(c)"
               >
-                {{ c?.header ?? c?.name ?? '—' }}
+                <span class="inline-flex items-center gap-1">
+                  {{ c?.header ?? c?.name ?? '—' }}
+                  <span
+                    v-if="userSort?.property === c?.name"
+                    class="text-slate-500"
+                    aria-hidden="true"
+                  >
+                    {{ userSort.direction === 'asc' ? '↑' : '↓' }}
+                  </span>
+                </span>
               </th>
             </tr>
           </thead>

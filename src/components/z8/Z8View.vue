@@ -21,6 +21,7 @@ const props = defineProps({
 const specState = ref(props.spec)
 const listboxRef = ref(null)
 const viewMode = ref('standard')
+const listboxRecord = {}
 
 const actionDialogOpen = ref(false)
 const pendingAction = shallowRef(null)
@@ -422,7 +423,7 @@ async function destroySelectedRecord() {
           :key="viewMode"
           ref="listboxRef"
           :control="listboxControl"
-          :record="{}"
+          :record="listboxRecord"
           @select-row="onSelectRow"
           @refresh="refreshMainList"
           @server-response="onServerResponse"
@@ -444,7 +445,7 @@ async function destroySelectedRecord() {
         :key="viewMode"
         ref="listboxRef"
         :control="tableListboxControl"
-        :record="{}"
+        :record="listboxRecord"
         @select-row="onSelectRow"
         @refresh="refreshMainList"
         @server-response="onServerResponse"

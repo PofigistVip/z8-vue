@@ -84,6 +84,7 @@ export class Z8Client {
     start = 0,
     limit = 200,
     period = { start: null, finish: null },
+    sort,
     count = false,
   }) {
     this.requireSession()
@@ -96,6 +97,7 @@ export class Z8Client {
       session: this.session,
     }
     if (count) fields.count = 'true'
+    if (Array.isArray(sort) && sort.length) fields.sort = sort
     return await this.postForm(fields)
   }
 
