@@ -408,9 +408,13 @@ watch(
 <template>
   <section
     class="rounded-lg border border-slate-200 bg-slate-50 p-3"
-    :class="fillHeight ? 'flex h-full min-h-0 flex-col' : 'space-y-2'"
+    :class="
+      fillHeight
+        ? 'flex h-full min-h-0 flex-col'
+        : 'flex max-h-80 flex-col overflow-hidden'
+    "
   >
-    <div :class="fillHeight ? 'flex shrink-0 items-start justify-between gap-3' : 'flex items-start justify-between gap-3'">
+    <div class="flex shrink-0 items-start justify-between gap-3">
       <div class="min-w-0">
         <div class="truncate text-sm font-semibold text-slate-800">{{ header }}</div>
         <div class="truncate text-xs text-slate-500">
@@ -443,7 +447,7 @@ watch(
 
       <div
         v-else
-        :class="fillHeight ? 'min-h-0 flex-1 overflow-auto' : 'max-h-80 overflow-auto'"
+        class="min-h-0 flex-1 overflow-auto"
       >
         <table class="min-w-full border-separate border-spacing-0">
           <thead>

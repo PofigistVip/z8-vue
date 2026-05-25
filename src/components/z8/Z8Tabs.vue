@@ -30,7 +30,10 @@ const activeTab = computed(() => tabs.value[active.value] ?? null)
       </button>
     </div>
 
-    <div v-if="activeTab" class="min-h-0 flex-1 overflow-hidden rounded-b-md border border-slate-200 bg-white p-4">
+    <div
+      v-if="activeTab"
+      class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-b-md border border-slate-200 bg-white p-4"
+    >
       <Z8Section :control="activeTab" :record="record" :ui-registry="uiRegistry" />
     </div>
   </section>

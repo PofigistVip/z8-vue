@@ -45,9 +45,9 @@ function cellStyle(child) {
         </div>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-hidden p-4">
-        <div class="grid h-full min-h-0 gap-4" :style="{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }">
-          <div v-for="(c, idx) in controls" :key="c?.name ?? idx" class="min-h-0" :style="cellStyle(c)">
+      <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
+        <div class="grid gap-4" :style="{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }">
+          <div v-for="(c, idx) in controls" :key="c?.name ?? idx" class="min-w-0" :style="cellStyle(c)">
             <Z8ControlRenderer
               :control="c"
               :record="record"

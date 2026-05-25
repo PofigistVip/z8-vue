@@ -39,7 +39,7 @@ const componentProps = computed(() => {
     return { control: props.control, record: props.record }
   }
   if (controlKind.value === 'listbox') {
-    return { control: { ...props.control, fillHeight: props.control?.flex === 1 }, record: props.record, uiRegistry: props.uiRegistry }
+    return { control: props.control, record: props.record, uiRegistry: props.uiRegistry }
   }
   return { control: props.control, record: props.record, uiRegistry: props.uiRegistry }
 })

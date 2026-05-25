@@ -25,19 +25,19 @@ function cellStyle(child) {
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col gap-3">
+  <section class="flex flex-col gap-3">
     <div v-if="header" class="shrink-0 text-sm font-semibold text-slate-800">
       {{ header }}
     </div>
 
     <div
-      class="grid min-h-0 flex-1 gap-4"
+      class="grid gap-4"
       :style="{
         gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
-        gridAutoRows: 'minmax(0, 1fr)',
+        gridAutoRows: 'auto',
       }"
     >
-      <div v-for="(c, idx) in children" :key="c?.name ?? idx" class="min-h-0" :style="cellStyle(c)">
+      <div v-for="(c, idx) in children" :key="c?.name ?? idx" class="min-w-0" :style="cellStyle(c)">
         <Z8ControlRenderer :control="c" :record="record" :ui-registry="uiRegistry" />
       </div>
     </div>
