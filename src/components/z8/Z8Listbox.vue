@@ -212,6 +212,14 @@ function onRowClick(row, index) {
   emit('select-row', { row, index, key })
 }
 
+function isRowSelected(row, ridx) {
+  if (!selectable.value) return false
+  if (selectedKey.value != null && rowKey.value) {
+    return row?.[rowKey.value] === selectedKey.value
+  }
+  return ridx === selectedIndex.value
+}
+
 function onRefreshClick() {
   if (useServerPaging.value) {
     loadPage(0)
@@ -463,21 +471,25 @@ watch(
             <tr
               v-for="(row, ridx) in sortedRows"
               :key="row?.recordId ?? row?.[`${query?.name}.recordId`] ?? ridx"
-              class="odd:bg-white/60"
-              :class="
-                selectable &&
-                ((selectedKey != null && rowKey && row?.[rowKey] === selectedKey) ||
-                  (selectedKey == null && ridx === selectedIndex))
-                  ? 'bg-slate-200/60'
-                  : ''
-              "
+              :class="[
+                isRowSelected(row, ridx)
+                  ? 'bg-sky-100 ring-1 ring-inset ring-sky-300'
+                  : ridx % 2 === 1
+                    ? 'bg-white'
+                    : '',
+                selectable
+                  ? [
+                      'cursor-pointer',
+                      !isRowSelected(row, ridx) ? 'hover:bg-slate-100' : '',
+                    ]
+                  : '',
+              ]"
               @click="onRowClick(row, ridx)"
             >
               <td
                 v-for="(c, cidx) in columns"
                 :key="c?.name ?? cidx"
                 class="border-b border-slate-200 px-2 py-1 text-xs text-slate-800"
-                :class="selectable ? 'cursor-pointer' : ''"
               >
                 <span class="whitespace-nowrap">{{ formatCellValue(c, row?.[c?.name]) }}</span>
               </td>
