@@ -2,7 +2,7 @@
 import { computed, inject, ref, watch } from 'vue'
 
 import { Z8Client } from '../../z8/z8Client.js'
-import { formatZ8DisplayValue } from '../../z8/z8Format.js'
+import { formatZ8DisplayValue, serializeZ8ValueForApi } from '../../z8/z8Format.js'
 
 const props = defineProps({
   control: { type: Object, required: true },
@@ -55,13 +55,6 @@ function toDatetimeLocal(raw) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function fromDatetimeLocal(local) {
-  if (!local) return ''
-  const ts = Date.parse(local)
-  if (Number.isNaN(ts)) return local
-  return new Date(ts).toISOString()
-}
-
 function toDateInput(raw) {
   if (raw === null || raw === undefined || raw === '') return ''
   const ts = Date.parse(String(raw))
@@ -69,13 +62,6 @@ function toDateInput(raw) {
   const d = new Date(ts)
   const pad = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
-function fromDateInput(local) {
-  if (!local) return ''
-  const ts = Date.parse(local)
-  if (Number.isNaN(ts)) return local
-  return new Date(ts).toISOString().slice(0, 10)
 }
 
 function syncFromRecord() {
@@ -108,8 +94,9 @@ function valuesEqual(a, b) {
 
 function parseValueForSubmit() {
   if (fieldKind.value === 'boolean') return localBool.value
-  if (fieldKind.value === 'datetime') return fromDatetimeLocal(localText.value)
-  if (fieldKind.value === 'date') return fromDateInput(localText.value)
+  if (fieldKind.value === 'date' || fieldKind.value === 'datetime') {
+    return serializeZ8ValueForApi(localText.value, props.control?.type)
+  }
   return localText.value
 }
 

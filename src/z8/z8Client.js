@@ -1,4 +1,5 @@
 import { pushInfoMessages } from '../stores/z8MessageStore.js'
+import { normalizeZ8DataForApi } from './z8Format.js'
 
 export class Z8Client {
   constructor(options = {}) {
@@ -135,7 +136,7 @@ export class Z8Client {
     data = [{ recordId: '00000000-0000-0000-0000-000000000000' }],
   }) {
     this.requireSession()
-    const payload = Array.isArray(data) ? data : []
+    const payload = normalizeZ8DataForApi(Array.isArray(data) ? data : [])
     const json = await this.postForm({
       request,
       action: 'create',
@@ -177,7 +178,7 @@ export class Z8Client {
 
   async update({ request, data }) {
     this.requireSession()
-    const payload = Array.isArray(data) ? data : []
+    const payload = normalizeZ8DataForApi(Array.isArray(data) ? data : [])
     const json = await this.postForm({
       request,
       action: 'update',
