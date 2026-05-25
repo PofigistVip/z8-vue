@@ -6,6 +6,7 @@ import z8srOnline from '../../mock/z8srOnline.json'
 import readPrik from '../../mock/readPrik.json'
 import readSrOnline from '../../mock/readSrOnline.json'
 import { Z8Client } from '../../z8/z8Client.js'
+import { formatZ8CellValue } from '../../z8/z8Format.js'
 
 const emit = defineEmits(['select-row', 'refresh', 'server-response'])
 
@@ -20,7 +21,27 @@ const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Clien
 
 const header = computed(() => props.control?.header ?? props.control?.name ?? 'List')
 const query = computed(() => props.control?.query ?? null)
-const columns = computed(() => (Array.isArray(query.value?.columns) ? query.value.columns : []))
+
+function normalizeListColumn(item) {
+  if (!item?.name) return null
+  return {
+    name: item.name,
+    header: item.header ?? item.name,
+    type: typeof item.type === 'string' ? item.type : 'string',
+  }
+}
+
+const columns = computed(() => {
+  const q = query.value
+  if (!q) return []
+  if (Array.isArray(q.columns) && q.columns.length) {
+    return q.columns.map(normalizeListColumn).filter(Boolean)
+  }
+  if (Array.isArray(q.fields) && q.fields.length) {
+    return q.fields.map(normalizeListColumn).filter(Boolean)
+  }
+  return []
+})
 const selectable = computed(() => Boolean(props.control?.selectable))
 const selectedIndex = computed(() =>
   Number.isFinite(props.control?.selectedIndex) ? props.control.selectedIndex : -1
@@ -196,13 +217,7 @@ const canNextPage = computed(() => {
 })
 
 function formatCellValue(col, raw) {
-  if (raw === null || raw === undefined || raw === '') return '—'
-  if (col?.type === 'datetime') {
-    const ts = Date.parse(String(raw))
-    if (!Number.isNaN(ts)) return new Date(ts).toLocaleString()
-  }
-  if (typeof raw === 'boolean') return raw ? 'true' : 'false'
-  return String(raw)
+  return formatZ8CellValue(raw, col?.type)
 }
 
 function onRowClick(row, index) {

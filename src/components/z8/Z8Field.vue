@@ -2,6 +2,7 @@
 import { computed, inject, ref, watch } from 'vue'
 
 import { Z8Client } from '../../z8/z8Client.js'
+import { formatZ8DisplayValue } from '../../z8/z8Format.js'
 
 const props = defineProps({
   control: { type: Object, required: true },
@@ -25,16 +26,14 @@ const rawValue = computed(() => (name.value ? props.record?.[name.value] : undef
 
 const fieldKind = computed(() => {
   if (props.control?.type === 'boolean') return 'boolean'
+  if (props.control?.type === 'date') return 'date'
   if (props.control?.type === 'datetime') return 'datetime'
   return 'text'
 })
 
-const displayValue = computed(() => {
-  const v = rawValue.value
-  if (v === null || v === undefined) return ''
-  if (typeof v === 'boolean') return v ? 'true' : 'false'
-  return String(v)
-})
+const displayValue = computed(() =>
+  formatZ8DisplayValue(rawValue.value, props.control?.type)
+)
 
 const saving = ref(false)
 const hasError = ref(false)
@@ -63,12 +62,30 @@ function fromDatetimeLocal(local) {
   return new Date(ts).toISOString()
 }
 
+function toDateInput(raw) {
+  if (raw === null || raw === undefined || raw === '') return ''
+  const ts = Date.parse(String(raw))
+  if (Number.isNaN(ts)) return String(raw)
+  const d = new Date(ts)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function fromDateInput(local) {
+  if (!local) return ''
+  const ts = Date.parse(local)
+  if (Number.isNaN(ts)) return local
+  return new Date(ts).toISOString().slice(0, 10)
+}
+
 function syncFromRecord() {
   const v = rawValue.value
   if (fieldKind.value === 'boolean') {
     localBool.value = Boolean(v)
   } else if (fieldKind.value === 'datetime') {
     localText.value = toDatetimeLocal(v)
+  } else if (fieldKind.value === 'date') {
+    localText.value = toDateInput(v)
   } else {
     localText.value = displayValue.value
   }
@@ -92,6 +109,7 @@ function valuesEqual(a, b) {
 function parseValueForSubmit() {
   if (fieldKind.value === 'boolean') return localBool.value
   if (fieldKind.value === 'datetime') return fromDatetimeLocal(localText.value)
+  if (fieldKind.value === 'date') return fromDateInput(localText.value)
   return localText.value
 }
 
@@ -181,7 +199,7 @@ const inputClass = computed(() => [
 
     <input
       v-else
-      :type="fieldKind === 'datetime' ? 'datetime-local' : 'text'"
+      :type="fieldKind === 'datetime' ? 'datetime-local' : fieldKind === 'date' ? 'date' : 'text'"
       :class="inputClass"
       v-model="localText"
       :placeholder="control?.format || ''"
