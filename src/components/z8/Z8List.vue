@@ -1,10 +1,6 @@
 <script setup>
 import { computed, inject, ref, watch } from 'vue'
 
-import z8prik from '../../mock/z8prik.json'
-import z8srOnline from '../../mock/z8srOnline.json'
-import readPrik from '../../mock/readPrik.json'
-import readSrOnline from '../../mock/readSrOnline.json'
 import { Z8Client } from '../../z8/z8Client.js'
 import { formatZ8CellValue } from '../../z8/z8Format.js'
 import {
@@ -43,11 +39,6 @@ const serverPageRows = ref([])
 const pageStart = ref(0)
 const pageTotal = ref(null)
 const pageLimit = ref(200)
-
-const isMockQueryName = computed(() => {
-  const name = query.value?.name
-  return name === 'прик' || name === 'srOnline'
-})
 
 const builtReadQueryPaging = computed(() =>
   buildReadQueryPaging({
@@ -99,11 +90,6 @@ const pagingBaseFingerprint = computed(() => serverPagingBaseKey.value)
 const dataset = computed(() => {
   if (useServerPaging.value) return Array.isArray(serverPageRows.value) ? serverPageRows.value : []
   if (Array.isArray(props.control?.data)) return props.control.data
-  if (isMockQueryName.value) {
-    const name = query.value?.name
-    if (name === 'прик') return z8prik?.data ?? []
-    if (name === 'srOnline') return z8srOnline?.data ?? []
-  }
   return []
 })
 
@@ -261,12 +247,7 @@ async function loadPage(start) {
       return
     }
 
-    let rows = Array.isArray(res?.data) ? res.data : []
-    if (!rows.length && sp.kind === 'readQuery' && isMockQueryName.value) {
-      const fallback =
-        query.value?.name === 'прик' ? (readPrik?.data ?? []) : (readSrOnline?.data ?? [])
-      rows = Array.isArray(fallback) ? fallback : []
-    }
+    const rows = Array.isArray(res?.data) ? res.data : []
 
     serverPageRows.value = rows
     pageStart.value = start
