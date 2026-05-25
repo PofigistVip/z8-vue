@@ -141,6 +141,7 @@ const listColumns = computed(() => {
         typeof c.header === 'string' &&
         !c.isTabControl &&
         !c.isListbox &&
+        !c.isCombobox &&
         !c.isSection
     )
     .map((c) => ({

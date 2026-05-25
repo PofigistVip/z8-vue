@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 
+import Z8Combobox from './Z8Combobox.vue'
 import Z8Field from './Z8Field.vue'
 import Z8Section from './Z8Section.vue'
 import Z8Tabs from './Z8Tabs.vue'
@@ -22,6 +23,7 @@ const controlKind = computed(() => {
   if (Boolean(props.control?.isTabControl) && Array.isArray(props.control?.tabs)) return 'tabs'
   if (Boolean(props.control?.isSection) || Array.isArray(props.control?.controls)) return 'section'
   if (Boolean(props.control?.isListbox) || props.control?.ui === 'ControlListbox') return 'listbox'
+  if (Boolean(props.control?.isCombobox)) return 'combobox'
   return 'field'
 })
 
@@ -29,13 +31,17 @@ const builtInRegistry = {
   tabs: Z8Tabs,
   section: Z8Section,
   listbox: Z8Listbox,
+  combobox: Z8Combobox,
   field: Z8Field,
 }
 
 const componentToRender = computed(() => resolvedUiComponent.value ?? builtInRegistry[controlKind.value] ?? Z8Field)
 
 const componentProps = computed(() => {
-  if (controlKind.value === 'field' && !resolvedUiComponent.value) {
+  if (
+    (controlKind.value === 'field' || controlKind.value === 'combobox') &&
+    !resolvedUiComponent.value
+  ) {
     return { control: props.control, record: props.record }
   }
   if (controlKind.value === 'listbox') {
