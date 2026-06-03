@@ -36,12 +36,8 @@ export class Z8Client {
     this._http.requireSession()
   }
 
-  async _request(fn) {
-    return await fn()
-  }
-
   async login({ login, password }) {
-    const json = await this._request(() => this._http.login(login, password))
+    const json = await this._http.login(login, password)
     return assertSuccess(json, 'Login failed')
   }
 
@@ -59,7 +55,7 @@ export class Z8Client {
     if (id !== undefined && id !== null && String(id).length > 0) {
       fields.id = id
     }
-    return await this._request(() => this._http.postForm(fields))
+    return await this._http.postForm(fields)
   }
 
   async read({
@@ -72,9 +68,9 @@ export class Z8Client {
   }) {
     const options = { request, start, limit, period, sort }
     if (count) {
-      return await this._request(() => this._http.count(options))
+      return await this._http.count(options)
     }
-    return await this._request(() => this._http.read(options))
+    return await this._http.read(options)
   }
 
   async readQuery({
@@ -99,9 +95,9 @@ export class Z8Client {
       limit,
     }
     if (count) {
-      return await this._request(() => this._http.count(options))
+      return await this._http.count(options)
     }
-    return await this._request(() => this._http.read(options))
+    return await this._http.read(options)
   }
 
   async create({
@@ -109,9 +105,7 @@ export class Z8Client {
     data = [DEFAULT_CREATE_RECORD],
   }) {
     const payload = normalizeZ8DataForApi(Array.isArray(data) ? data : [])
-    const json = await this._request(() =>
-      this._http.create({ request, data: payload })
-    )
+    const json = await this._http.create({ request, data: payload })
     return assertSuccess(json, 'Create failed')
   }
 
@@ -120,24 +114,25 @@ export class Z8Client {
     const ids = rows
       .map((r) => r?.recordId)
       .filter((id) => id !== undefined && id !== null && String(id).length > 0)
-    const json = await this._request(() => this._http.destroy({ request, ids }))
+    const json = await this._http.destroy({ request, ids })
     return assertSuccess(json, 'Destroy failed')
   }
 
   async update({ request, data }) {
     const payload = normalizeZ8DataForApi(Array.isArray(data) ? data : [])
-    const json = await this._request(() =>
-      this._http.update({ request, data: payload })
-    )
+    const json = await this._http.update({ request, data: payload })
     return assertSuccess(json, 'Update failed')
   }
 
   async action({ request, name, records, parameters = [] }) {
     const rec = Array.isArray(records) ? records : []
     const params = Array.isArray(parameters) ? parameters : []
-    const json = await this._request(() =>
-      this._http.action({ request, name, records: rec, parameters: params })
-    )
+    const json = await this._http.action({
+      request,
+      name,
+      records: rec,
+      parameters: params,
+    })
     return assertSuccess(json, 'Action failed')
   }
 }
