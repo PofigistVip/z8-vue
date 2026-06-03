@@ -22,7 +22,10 @@ function assertSuccess(json, fallback) {
 
 export class Z8Client {
   constructor(options = {}) {
-    this._http = new Z8Http(options)
+    this._http = new Z8Http({
+      ...options,
+      onMessages: options.onMessages ?? pushInfoMessages,
+    })
   }
 
   setSession(session) {
@@ -34,9 +37,7 @@ export class Z8Client {
   }
 
   async _request(fn) {
-    const json = await fn()
-    pushInfoMessages(json?.info?.messages)
-    return json
+    return await fn()
   }
 
   async login({ login, password }) {
