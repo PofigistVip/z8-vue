@@ -1,66 +1,47 @@
+import { Z8Http } from 'z8-http'
+
 import { pushInfoMessages } from '../stores/z8MessageStore.js'
 import { normalizeZ8DataForApi } from './z8Format.js'
 
+const DEFAULT_CREATE_RECORD = {
+  recordId: '00000000-0000-0000-0000-000000000000',
+}
+
+function errorMessage(json, fallback) {
+  if (typeof json?.message === 'string') return json.message
+  if (typeof json?.error === 'string') return json.error
+  return JSON.stringify(json ?? {}) || fallback
+}
+
+function assertSuccess(json, fallback) {
+  if (json?.success !== true) {
+    throw new Error(errorMessage(json, fallback))
+  }
+  return json
+}
+
 export class Z8Client {
   constructor(options = {}) {
-    this.url = options.url ?? '/request.json'
-    this.session = options.session ?? null
+    this._http = new Z8Http(options)
   }
 
   setSession(session) {
-    this.session = session && String(session).trim() ? String(session).trim() : null
+    this._http.setSession(session)
   }
 
   requireSession() {
-    if (!this.session) {
-      throw new Error('Z8: session is not set. Log in first.')
-    }
+    this._http.requireSession()
   }
 
-  async postForm(fields) {
-    const body = new URLSearchParams()
-    for (const [k, v] of Object.entries(fields)) {
-      if (v === undefined) continue
-      body.set(k, typeof v === 'string' ? v : JSON.stringify(v))
-    }
-
-    const res = await fetch(this.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      },
-      body,
-    })
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new Error(`Z8 request failed: ${res.status} ${res.statusText}${text ? `\n${text}` : ''}`)
-    }
-
-    const json = await res.json()
+  async _request(fn) {
+    const json = await fn()
     pushInfoMessages(json?.info?.messages)
     return json
   }
 
   async login({ login, password }) {
-    const payload = {
-      request: 'login',
-      login,
-      experimental: 'true',
-    }
-    const pwd = typeof password === 'string' ? password.trim() : ''
-    if (pwd) payload.password = pwd
-    const json = await this.postForm(payload)
-    if (json?.success !== true) {
-      const msg =
-        typeof json?.message === 'string'
-          ? json.message
-          : typeof json?.error === 'string'
-            ? json.error
-            : JSON.stringify(json ?? {})
-      throw new Error(msg || 'Login failed')
-    }
-    return json
+    const json = await this._request(() => this._http.login(login, password))
+    return assertSuccess(json, 'Login failed')
   }
 
   async meta({
@@ -72,12 +53,12 @@ export class Z8Client {
     const fields = {
       request,
       period,
-      session: this.session,
+      session: this._http.session,
     }
     if (id !== undefined && id !== null && String(id).length > 0) {
       fields.id = id
     }
-    return await this.postForm(fields)
+    return await this._request(() => this._http.postForm(fields))
   }
 
   async read({
@@ -88,18 +69,11 @@ export class Z8Client {
     sort,
     count = false,
   }) {
-    this.requireSession()
-    const fields = {
-      action: 'read',
-      request,
-      period,
-      start,
-      limit,
-      session: this.session,
+    const options = { request, start, limit, period, sort }
+    if (count) {
+      return await this._request(() => this._http.count(options))
     }
-    if (count) fields.count = 'true'
-    if (Array.isArray(sort) && sort.length) fields.sort = sort
-    return await this.postForm(fields)
+    return await this._request(() => this._http.read(options))
   }
 
   async readQuery({
@@ -111,12 +85,9 @@ export class Z8Client {
     values,
     start = 0,
     limit = 200,
-    action = 'read',
     count = false,
   }) {
-    this.requireSession()
-    const payload = {
-      action,
+    const options = {
       request,
       query,
       fields,
@@ -125,99 +96,47 @@ export class Z8Client {
       values,
       start,
       limit,
-      session: this.session,
     }
-    if (count) payload.count = 'true'
-    return await this.postForm(payload)
+    if (count) {
+      return await this._request(() => this._http.count(options))
+    }
+    return await this._request(() => this._http.read(options))
   }
 
   async create({
     request,
-    data = [{ recordId: '00000000-0000-0000-0000-000000000000' }],
+    data = [DEFAULT_CREATE_RECORD],
   }) {
-    this.requireSession()
     const payload = normalizeZ8DataForApi(Array.isArray(data) ? data : [])
-    const json = await this.postForm({
-      request,
-      action: 'create',
-      data: payload,
-      session: this.session,
-    })
-    if (json?.success !== true) {
-      const msg =
-        typeof json?.message === 'string'
-          ? json.message
-          : typeof json?.error === 'string'
-            ? json.error
-            : JSON.stringify(json ?? {})
-      throw new Error(msg || 'Create failed')
-    }
-    return json
+    const json = await this._request(() =>
+      this._http.create({ request, data: payload })
+    )
+    return assertSuccess(json, 'Create failed')
   }
 
   async destroy({ request, data }) {
-    this.requireSession()
-    const payload = Array.isArray(data) ? data : []
-    const json = await this.postForm({
-      request,
-      action: 'destroy',
-      data: payload,
-      session: this.session,
-    })
-    if (json?.success !== true) {
-      const msg =
-        typeof json?.message === 'string'
-          ? json.message
-          : typeof json?.error === 'string'
-            ? json.error
-            : JSON.stringify(json ?? {})
-      throw new Error(msg || 'Destroy failed')
-    }
-    return json
+    const rows = Array.isArray(data) ? data : []
+    const ids = rows
+      .map((r) => r?.recordId)
+      .filter((id) => id !== undefined && id !== null && String(id).length > 0)
+    const json = await this._request(() => this._http.destroy({ request, ids }))
+    return assertSuccess(json, 'Destroy failed')
   }
 
   async update({ request, data }) {
-    this.requireSession()
     const payload = normalizeZ8DataForApi(Array.isArray(data) ? data : [])
-    const json = await this.postForm({
-      request,
-      action: 'update',
-      data: payload,
-      session: this.session,
-    })
-    if (json?.success !== true) {
-      const msg =
-        typeof json?.message === 'string'
-          ? json.message
-          : typeof json?.error === 'string'
-            ? json.error
-            : JSON.stringify(json ?? {})
-      throw new Error(msg || 'Update failed')
-    }
-    return json
+    const json = await this._request(() =>
+      this._http.update({ request, data: payload })
+    )
+    return assertSuccess(json, 'Update failed')
   }
 
   async action({ request, name, records, parameters = [] }) {
-    this.requireSession()
     const rec = Array.isArray(records) ? records : []
     const params = Array.isArray(parameters) ? parameters : []
-    const json = await this.postForm({
-      request,
-      action: 'action',
-      name,
-      records: rec,
-      parameters: params,
-      session: this.session,
-    })
-    if (json?.success !== true) {
-      const msg =
-        typeof json?.message === 'string'
-          ? json.message
-          : typeof json?.error === 'string'
-            ? json.error
-            : JSON.stringify(json ?? {})
-      throw new Error(msg || 'Action failed')
-    }
-    return json
+    const json = await this._request(() =>
+      this._http.action({ request, name, records: rec, parameters: params })
+    )
+    return assertSuccess(json, 'Action failed')
   }
 }
