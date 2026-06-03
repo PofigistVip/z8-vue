@@ -28,6 +28,7 @@ const activeSpec = ref(null)
 const activeViewRequest = ref('')
 const activeViewId = ref('')
 const loading = ref(false)
+const loadingIsJob = ref(false)
 const error = ref(null)
 
 function metaIdForEntry(entry) {
@@ -83,19 +84,29 @@ async function openNavEntry(entry) {
   activeViewId.value = entry.id ?? ''
   error.value = null
   loading.value = true
+  loadingIsJob.value = entry.isJob === true
   try {
-    const id = metaIdForEntry(entry)
-    const res = await client.meta({
-      request: entry.request,
-      ...(id ? { id } : {}),
-      period: { start: null, finish: null },
-    })
-    activeSpec.value = res
+    if (entry.isJob === true) {
+      activeSpec.value = null
+      await client.job({
+        request: entry.request,
+        period: { start: null, finish: null },
+      })
+    } else {
+      const id = metaIdForEntry(entry)
+      const res = await client.meta({
+        request: entry.request,
+        ...(id ? { id } : {}),
+        period: { start: null, finish: null },
+      })
+      activeSpec.value = res
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
     activeSpec.value = null
   } finally {
     loading.value = false
+    loadingIsJob.value = false
   }
 }
 
@@ -197,7 +208,9 @@ const userLabel = computed(() => {
           </div>
 
           <div v-if="loading" class="flex h-full items-center justify-center">
-            <div class="text-sm text-slate-600">Загрузка…</div>
+            <div class="text-sm text-slate-600">
+              {{ loadingIsJob ? 'Выполняется задача…' : 'Загрузка…' }}
+            </div>
           </div>
 
           <div v-else-if="activeSpec" class="h-full min-h-0">

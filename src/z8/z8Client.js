@@ -135,4 +135,14 @@ export class Z8Client {
     })
     return assertSuccess(json, 'Action failed')
   }
+
+  async job({
+    request,
+    period = { start: null, finish: null },
+    pollIntervalMs,
+  } = {}) {
+    const options = { request, period }
+    if (pollIntervalMs !== undefined) options.pollIntervalMs = pollIntervalMs
+    return await this._http.job(options)
+  }
 }

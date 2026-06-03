@@ -1,5 +1,12 @@
 import { reactive, readonly } from 'vue'
 
+function jobFieldsFromRaw(raw) {
+  return {
+    isJob: raw.isJob === true,
+    parameters: Array.isArray(raw.parameters) ? raw.parameters : [],
+  }
+}
+
 function normalizeLegacyNavEntry(raw) {
   if (!raw || typeof raw !== 'object') return null
   const text = typeof raw.text === 'string' ? raw.text : ''
@@ -7,7 +14,7 @@ function normalizeLegacyNavEntry(raw) {
   const id = raw.id === undefined || raw.id === null ? '' : String(raw.id)
   const childrenRaw = Array.isArray(raw.entries) ? raw.entries : []
   const entries = childrenRaw.map(normalizeLegacyNavEntry).filter(Boolean)
-  return { text, request, id, entries, isGroup: false }
+  return { text, request, id, entries, isGroup: false, ...jobFieldsFromRaw(raw) }
 }
 
 function normalizeLegacyNavTree(list) {
@@ -27,9 +34,9 @@ function normalizeMenuNode(raw) {
 
   if (!hasRequest && !hasChildren) return null
   if (!hasRequest && hasChildren) {
-    return { text, request: '', id: '', entries, isGroup: true }
+    return { text, request: '', id: '', entries, isGroup: true, isJob: false, parameters: [] }
   }
-  return { text, request, id, entries, isGroup: false }
+  return { text, request, id, entries, isGroup: false, ...jobFieldsFromRaw(raw) }
 }
 
 function normalizeMenuData(rawList) {
