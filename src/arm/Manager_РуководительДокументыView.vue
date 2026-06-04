@@ -1,5 +1,5 @@
 <script setup>
-import { inject, onMounted, ref } from 'vue'
+import { inject, nextTick, onMounted, ref } from 'vue'
 
 import Z8View from '../components/z8/Z8View.vue'
 import { Z8Client } from '../z8/z8Client.js'
@@ -16,10 +16,12 @@ const props = defineProps({
 const injectedClient = inject('z8Client', null)
 const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Client()
 
+const z8ViewRef = ref(null)
 const sections = ref([])
 const sectionsLoading = ref(false)
 const sectionsError = ref(null)
 const selectedSectionKey = ref('')
+const selectedSectionId = ref(null)
 
 function sectionKey(row, index) {
   const id = row?.recordId
@@ -42,8 +44,29 @@ function sectionCount(row) {
   return ''
 }
 
-function selectSection(row, index) {
+function listBeforeRequest(method, payload) {
+  const id = selectedSectionId.value
+  if (!id) return
+  if (method === 'read' || method === 'count') {
+    payload.section = id
+  }
+}
+
+function applySectionSelection(row, index) {
   selectedSectionKey.value = sectionKey(row, index)
+  const rid = row?.recordId
+  selectedSectionId.value =
+    rid !== undefined && rid !== null && String(rid).length > 0 ? String(rid) : null
+}
+
+async function reloadMainList() {
+  await nextTick()
+  await z8ViewRef.value?.reloadMainList?.()
+}
+
+function selectSection(row, index) {
+  applySectionSelection(row, index)
+  void reloadMainList()
 }
 
 async function loadSections() {
@@ -59,13 +82,16 @@ async function loadSections() {
     const rows = Array.isArray(res?.data) ? res.data : []
     sections.value = rows
     if (rows.length > 0) {
-      selectedSectionKey.value = sectionKey(rows[0], 0)
+      applySectionSelection(rows[0], 0)
+      await reloadMainList()
     } else {
       selectedSectionKey.value = ''
+      selectedSectionId.value = null
     }
   } catch (e) {
     sections.value = []
     selectedSectionKey.value = ''
+    selectedSectionId.value = null
     sectionsError.value = e instanceof Error ? e.message : String(e)
   } finally {
     sectionsLoading.value = false
@@ -137,10 +163,19 @@ onMounted(() => {
 
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <Z8View
+        v-if="selectedSectionId"
+        ref="z8ViewRef"
         :spec="spec"
         :view-request="viewRequest"
         :view-id="viewId"
+        :before-request="listBeforeRequest"
       />
+      <div
+        v-else-if="!sectionsLoading && !sectionsError"
+        class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white text-sm text-slate-600"
+      >
+        Выберите раздел.
+      </div>
     </div>
   </div>
 </template>

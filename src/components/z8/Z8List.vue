@@ -231,6 +231,7 @@ async function loadPage(start) {
         start,
         limit,
         sort,
+        beforeRequest: sp.beforeRequest,
       })
     } else if (sp.kind === 'readQuery') {
       res = await client.readQuery({
@@ -266,6 +267,7 @@ async function loadPage(start) {
             start,
             limit,
             count: true,
+            beforeRequest: sp.beforeRequest,
           })
         } else {
           countRes = await client.readQuery({

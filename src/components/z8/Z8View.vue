@@ -16,6 +16,7 @@ const props = defineProps({
     default: 'ru.moscollector.control.module.cards.view.СчитывателиView',
   },
   viewId: { type: String, default: '' },
+  beforeRequest: { type: Function, default: null },
 })
 
 const specState = ref(props.spec)
@@ -46,22 +47,25 @@ const actionDialogTitle = computed(() => {
   return typeof a.name === 'string' ? a.name : ''
 })
 
-const listServerPaging = shallowRef({
-  kind: 'read',
-  request: props.viewRequest,
-  period: { start: null, finish: null },
-  limit: 200,
-})
+function buildListServerPaging(request) {
+  const paging = {
+    kind: 'read',
+    request,
+    period: { start: null, finish: null },
+    limit: 200,
+  }
+  if (typeof props.beforeRequest === 'function') {
+    paging.beforeRequest = props.beforeRequest
+  }
+  return paging
+}
+
+const listServerPaging = shallowRef(buildListServerPaging(props.viewRequest))
 
 watch(
-  () => props.viewRequest,
-  (r) => {
-    listServerPaging.value = {
-      kind: 'read',
-      request: r,
-      period: { start: null, finish: null },
-      limit: 200,
-    }
+  () => [props.viewRequest, props.beforeRequest],
+  () => {
+    listServerPaging.value = buildListServerPaging(props.viewRequest)
   },
   { immediate: true }
 )
@@ -212,6 +216,10 @@ function onServerResponse(res) {
 async function refreshMainList() {
   await listboxRef.value?.reload?.()
 }
+
+defineExpose({
+  reloadMainList: refreshMainList,
+})
 
 function cloneActionParameters(list) {
   try {

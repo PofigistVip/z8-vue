@@ -65,8 +65,9 @@ export class Z8Client {
     period = { start: null, finish: null },
     sort,
     count = false,
+    beforeRequest,
   }) {
-    const options = { request, start, limit, period, sort }
+    const options = { request, start, limit, period, sort, beforeRequest }
     if (count) {
       return await this._http.count(options)
     }
@@ -83,6 +84,7 @@ export class Z8Client {
     start = 0,
     limit = 200,
     count = false,
+    beforeRequest,
   }) {
     const options = {
       request,
@@ -93,6 +95,7 @@ export class Z8Client {
       values,
       start,
       limit,
+      beforeRequest,
     }
     if (count) {
       return await this._http.count(options)
