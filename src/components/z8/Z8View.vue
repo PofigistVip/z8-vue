@@ -444,7 +444,17 @@ async function destroySelectedRecord() {
             @select-row="onSelectRow"
             @refresh="refreshMainList"
             @server-response="onServerResponse"
-          />
+          >
+            <template
+              v-if="$slots.mainListRow"
+              #row="scope"
+            >
+              <slot
+                name="mainListRow"
+                v-bind="scope"
+              />
+            </template>
+          </Z8Listbox>
         </slot>
       </aside>
 

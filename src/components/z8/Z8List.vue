@@ -2,6 +2,7 @@
 import { computed, inject, ref, watch } from 'vue'
 
 import { Z8Client } from '../../z8/z8Client.js'
+import { formatZ8CellValue } from '../../z8/z8Format.js'
 
 import Z8ListItem from './Z8ListItem.vue'
 import {
@@ -170,6 +171,25 @@ const canNextPage = computed(() => {
   if (t != null && Number.isFinite(t)) return pageStart.value + lim < t
   return true
 })
+
+function formatCellValue(col, raw) {
+  return formatZ8CellValue(raw, col?.type)
+}
+
+function formatField(row, name) {
+  const col = columns.value.find((c) => c?.name === name)
+  return formatCellValue(col, row?.[name])
+}
+
+function rowWrapperClass(row, ridx) {
+  const selected = isRowSelected(row, ridx)
+  return [
+    selected ? 'bg-sky-100 ring-1 ring-inset ring-sky-300' : ridx % 2 === 1 ? 'bg-white' : '',
+    selectable.value
+      ? ['cursor-pointer', !selected ? 'hover:bg-slate-100' : '']
+      : '',
+  ]
+}
 
 function onRowClick(row, index) {
   if (!selectable.value) return
@@ -393,7 +413,31 @@ watch(
         v-else
         class="min-h-0 flex-1 overflow-auto"
       >
-        <table class="min-w-full border-separate border-spacing-0">
+        <div
+          v-if="$slots.row"
+          class="flex flex-col gap-1 p-1"
+        >
+          <div
+            v-for="(row, ridx) in sortedRows"
+            :key="row?.recordId ?? row?.[`${query?.name}.recordId`] ?? ridx"
+            :class="rowWrapperClass(row, ridx)"
+            @click="onRowClick(row, ridx)"
+          >
+            <slot
+              name="row"
+              :row="row"
+              :row-index="ridx"
+              :selected="isRowSelected(row, ridx)"
+              :selectable="selectable"
+              :format-field="(name) => formatField(row, name)"
+            />
+          </div>
+        </div>
+
+        <table
+          v-else
+          class="min-w-full border-separate border-spacing-0"
+        >
           <thead>
             <tr>
               <th

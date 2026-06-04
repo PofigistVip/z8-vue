@@ -14,6 +14,29 @@ export function formatZ8Date(raw) {
   return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`
 }
 
+/** Unix seconds или milliseconds → Date или null */
+export function parseZ8UnixTimestamp(raw) {
+  if (raw === null || raw === undefined || raw === '') return null
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return null
+  const ms = Math.abs(n) < 1e12 ? n * 1000 : n
+  const d = new Date(ms)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/** dd.MM.yyyy из Unix timestamp; пустое → '' */
+export function formatZ8UnixDate(raw) {
+  const d = parseZ8UnixTimestamp(raw)
+  if (!d) return ''
+  return formatZ8Date(d)
+}
+
+/** для UI списков: пустое → '—' */
+export function formatZ8UnixCellValue(raw) {
+  const s = formatZ8UnixDate(raw)
+  return s || '—'
+}
+
 export function formatZ8DateTime(raw) {
   const d = parseZ8Date(raw)
   if (!d) return raw == null || raw === '' ? '' : String(raw)

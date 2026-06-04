@@ -3,6 +3,7 @@ import { inject, nextTick, onMounted, ref } from 'vue'
 
 import Z8View from '../components/z8/Z8View.vue'
 import { Z8Client } from '../z8/z8Client.js'
+import { formatZ8UnixCellValue } from '../z8/z8Format.js'
 
 const SECTIONS_REQUEST =
   'ru.ivk.homer.module.manager.view.РуководительРазделыДокументовView'
@@ -169,7 +170,30 @@ onMounted(() => {
         :view-request="viewRequest"
         :view-id="viewId"
         :before-request="listBeforeRequest"
-      />
+      >
+        <template #mainListRow="{ row, selected, formatField }">
+          <div
+            class="w-full rounded-md border px-3 py-2 text-left"
+            :class="
+              selected ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white'
+            "
+          >
+            <div class="flex items-baseline justify-between gap-2 text-xs">
+              <span class="min-w-0 truncate font-semibold text-slate-900">
+                {{ formatField('ОВУАвтора') }}
+              </span>
+              <span class="shrink-0 text-slate-500">{{ formatZ8UnixCellValue(row?.датаМне) }}</span>
+            </div>
+            <div class="mt-1 truncate text-sm text-slate-800">
+              {{ formatField('заголовок') }}
+            </div>
+            <div class="mt-1 flex items-baseline justify-between gap-2 text-xs text-slate-600">
+              <span class="min-w-0 truncate">{{ formatField('регНомер') }}</span>
+              <span class="shrink-0">{{ formatField('срочность') }}</span>
+            </div>
+          </div>
+        </template>
+      </Z8View>
       <div
         v-else-if="!sectionsLoading && !sectionsError"
         class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white text-sm text-slate-600"

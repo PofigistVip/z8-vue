@@ -95,7 +95,17 @@ defineExpose({
         :record="record"
         @select-row="onSelectRow"
         @server-response="onServerResponse"
-      />
+      >
+        <template
+          v-if="$slots.row"
+          #row="scope"
+        >
+          <slot
+            name="row"
+            v-bind="scope"
+          />
+        </template>
+      </Z8List>
     </slot>
   </section>
 </template>
