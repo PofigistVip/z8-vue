@@ -81,13 +81,21 @@ defineExpose({
       </div>
     </div>
 
-    <Z8List
-      ref="listRef"
-      class="min-h-0 flex-1"
+    <slot
+      name="list"
       :control="listControl"
       :record="record"
-      @select-row="onSelectRow"
-      @server-response="onServerResponse"
-    />
+      :on-select-row="onSelectRow"
+      :on-server-response="onServerResponse"
+    >
+      <Z8List
+        ref="listRef"
+        class="min-h-0 flex-1"
+        :control="listControl"
+        :record="record"
+        @select-row="onSelectRow"
+        @server-response="onServerResponse"
+      />
+    </slot>
   </section>
 </template>

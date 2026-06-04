@@ -428,15 +428,24 @@ async function destroySelectedRecord() {
 
     <div v-if="isStandardMode" class="flex min-h-0 flex-1 gap-4">
       <aside class="flex w-[360px] shrink-0 min-h-0 flex-col">
-        <Z8Listbox
-          :key="viewMode"
-          ref="listboxRef"
+        <slot
+          name="mainListbox"
           :control="listboxControl"
           :record="listboxRecord"
-          @select-row="onSelectRow"
-          @refresh="refreshMainList"
-          @server-response="onServerResponse"
-        />
+          :on-select-row="onSelectRow"
+          :on-refresh="refreshMainList"
+          :on-server-response="onServerResponse"
+        >
+          <Z8Listbox
+            :key="viewMode"
+            ref="listboxRef"
+            :control="listboxControl"
+            :record="listboxRecord"
+            @select-row="onSelectRow"
+            @refresh="refreshMainList"
+            @server-response="onServerResponse"
+          />
+        </slot>
       </aside>
 
       <section class="flex min-w-0 flex-1 min-h-0 flex-col">
@@ -450,15 +459,24 @@ async function destroySelectedRecord() {
     </div>
 
     <div v-else class="flex min-h-0 flex-1 flex-col">
-      <Z8Listbox
-        :key="viewMode"
-        ref="listboxRef"
+      <slot
+        name="tableListbox"
         :control="tableListboxControl"
         :record="listboxRecord"
-        @select-row="onSelectRow"
-        @refresh="refreshMainList"
-        @server-response="onServerResponse"
-      />
+        :on-select-row="onSelectRow"
+        :on-refresh="refreshMainList"
+        :on-server-response="onServerResponse"
+      >
+        <Z8Listbox
+          :key="viewMode"
+          ref="listboxRef"
+          :control="tableListboxControl"
+          :record="listboxRecord"
+          @select-row="onSelectRow"
+          @refresh="refreshMainList"
+          @server-response="onServerResponse"
+        />
+      </slot>
     </div>
 
     <Z8ActionParamsDialog

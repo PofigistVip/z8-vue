@@ -2,7 +2,8 @@
 import { computed, inject, ref, watch } from 'vue'
 
 import { Z8Client } from '../../z8/z8Client.js'
-import { formatZ8CellValue } from '../../z8/z8Format.js'
+
+import Z8ListItem from './Z8ListItem.vue'
 import {
   buildReadQueryPaging,
   getClientLinkField,
@@ -169,10 +170,6 @@ const canNextPage = computed(() => {
   if (t != null && Number.isFinite(t)) return pageStart.value + lim < t
   return true
 })
-
-function formatCellValue(col, raw) {
-  return formatZ8CellValue(raw, col?.type)
-}
 
 function onRowClick(row, index) {
   if (!selectable.value) return
@@ -419,32 +416,16 @@ watch(
             </tr>
           </thead>
           <tbody>
-            <tr
+            <Z8ListItem
               v-for="(row, ridx) in sortedRows"
               :key="row?.recordId ?? row?.[`${query?.name}.recordId`] ?? ridx"
-              :class="[
-                isRowSelected(row, ridx)
-                  ? 'bg-sky-100 ring-1 ring-inset ring-sky-300'
-                  : ridx % 2 === 1
-                    ? 'bg-white'
-                    : '',
-                selectable
-                  ? [
-                      'cursor-pointer',
-                      !isRowSelected(row, ridx) ? 'hover:bg-slate-100' : '',
-                    ]
-                  : '',
-              ]"
-              @click="onRowClick(row, ridx)"
-            >
-              <td
-                v-for="(c, cidx) in columns"
-                :key="c?.name ?? cidx"
-                class="border-b border-slate-200 px-2 py-1 text-xs text-slate-800"
-              >
-                <span class="whitespace-nowrap">{{ formatCellValue(c, row?.[c?.name]) }}</span>
-              </td>
-            </tr>
+              :row="row"
+              :row-index="ridx"
+              :columns="columns"
+              :selectable="selectable"
+              :selected="isRowSelected(row, ridx)"
+              @click="onRowClick"
+            />
           </tbody>
         </table>
       </div>
