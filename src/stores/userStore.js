@@ -86,6 +86,30 @@ export function setUserStoreLoginError(message) {
   state.loginError = typeof message === 'string' ? message : String(message ?? '')
 }
 
+export const MANAGER_DOCUMENTS_VIEW_REQUEST =
+  'ru.ivk.homer.module.manager.view.РуководительДокументыView'
+
+export function isAdminUser(user) {
+  const login = typeof user?.login === 'string' ? user.login.trim() : ''
+  return login.toLowerCase() === 'admin'
+}
+
+/** Рекурсивный поиск листа меню по request. */
+export function findNavEntryByRequest(entries, request) {
+  const target = typeof request === 'string' ? request.trim() : ''
+  if (!target || !Array.isArray(entries)) return null
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue
+    const req = typeof entry.request === 'string' ? entry.request.trim() : ''
+    if (req === target) return entry
+    const children = Array.isArray(entry.entries) ? entry.entries : []
+    const found = findNavEntryByRequest(children, target)
+    if (found) return found
+  }
+  return null
+}
+
 /** Стабильный ключ листа меню (совпадает с NavEntry для пунктов с request). */
 export function menuLeafKey(entry) {
   if (!entry || typeof entry.request !== 'string' || !entry.request.trim()) return ''

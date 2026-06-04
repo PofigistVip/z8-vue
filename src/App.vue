@@ -7,6 +7,9 @@ import Z8View from './components/z8/Z8View.vue'
 import {
   applyLoginResponse,
   clearUserStore,
+  findNavEntryByRequest,
+  isAdminUser,
+  MANAGER_DOCUMENTS_VIEW_REQUEST,
   menuLeafKey,
   useUserStore,
 } from './stores/userStore.js'
@@ -52,12 +55,21 @@ async function submitLogin() {
       password: loginPassword.value,
     })
     client.setSession(res.session)
-    applyLoginResponse(res)
+    const ok = applyLoginResponse(res)
     loginPassword.value = ''
     activeNavKey.value = ''
     activeSpec.value = null
     activeViewRequest.value = ''
     activeViewId.value = ''
+    if (ok && !isAdminUser(userStore.user)) {
+      const entry =
+        findNavEntryByRequest(userStore.navEntries, MANAGER_DOCUMENTS_VIEW_REQUEST) ?? {
+          request: MANAGER_DOCUMENTS_VIEW_REQUEST,
+          id: '',
+          text: '',
+        }
+      await openNavEntry(entry)
+    }
   } catch (e) {
     loginFormError.value = e instanceof Error ? e.message : String(e)
     clearUserStore()
@@ -117,6 +129,8 @@ const userLabel = computed(() => {
   if (parts.length) return parts.join(' ')
   return u.login ?? ''
 })
+
+const showNavigation = computed(() => isAdminUser(userStore.user))
 
 function resolveViewUi(ui) {
   const name = typeof ui === 'string' ? ui.trim() : ''
@@ -183,7 +197,10 @@ const activeViewComponent = computed(() => resolveViewUi(activeSpec.value?.ui))
     </template>
 
     <template v-else>
-      <aside class="flex w-60 shrink-0 flex-col border-r bg-white">
+      <aside
+        v-if="showNavigation"
+        class="flex w-60 shrink-0 flex-col border-r bg-white"
+      >
         <div class="shrink-0 border-b px-4 py-3">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Навигация</div>
           <div v-if="userLabel" class="mt-1 truncate text-sm font-medium text-slate-800">
@@ -208,12 +225,37 @@ const activeViewComponent = computed(() => resolveViewUi(activeSpec.value?.ui))
         </nav>
       </aside>
 
-      <main class="min-h-0 flex-1 overflow-hidden p-6">
-        <div v-if="!activeSpec && !loading" class="flex h-full items-center justify-center">
+      <main class="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
+        <div
+          v-if="!showNavigation"
+          class="mb-4 flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 pb-3"
+        >
+          <div
+            v-if="userLabel"
+            class="min-w-0 truncate text-sm font-medium text-slate-800"
+          >
+            {{ userLabel }}
+          </div>
+          <button
+            type="button"
+            class="shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
+            @click="logout"
+          >
+            Выйти
+          </button>
+        </div>
+
+        <div
+          v-if="showNavigation && !activeSpec && !loading"
+          class="flex min-h-0 flex-1 items-center justify-center"
+        >
           <div class="text-sm text-slate-600">Выберите раздел в меню слева.</div>
         </div>
 
-        <div v-else class="h-full min-h-0">
+        <div
+          v-else-if="!showNavigation || activeSpec || loading"
+          class="min-h-0 flex-1"
+        >
           <div v-if="error" class="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             {{ error }}
           </div>
@@ -224,7 +266,10 @@ const activeViewComponent = computed(() => resolveViewUi(activeSpec.value?.ui))
             </div>
           </div>
 
-          <div v-else-if="activeSpec" class="h-full min-h-0">
+          <div
+            v-else-if="activeSpec"
+            class="h-full min-h-0"
+          >
             <component
               :is="activeViewComponent"
               :spec="activeSpec"
