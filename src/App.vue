@@ -1,5 +1,5 @@
 <script setup>
-import { computed, provide, ref } from 'vue'
+import { computed, provide, ref, resolveComponent } from 'vue'
 
 import NavEntry from './components/NavEntry.vue'
 import Z8MessageToasts from './components/Z8MessageToasts.vue'
@@ -117,6 +117,17 @@ const userLabel = computed(() => {
   if (parts.length) return parts.join(' ')
   return u.login ?? ''
 })
+
+function resolveViewUi(ui) {
+  const name = typeof ui === 'string' ? ui.trim() : ''
+  if (!name) return Z8View
+
+  const resolved = resolveComponent(name)
+  if (typeof resolved === 'string') return Z8View
+  return resolved ?? Z8View
+}
+
+const activeViewComponent = computed(() => resolveViewUi(activeSpec.value?.ui))
 </script>
 
 <template>
@@ -214,7 +225,8 @@ const userLabel = computed(() => {
           </div>
 
           <div v-else-if="activeSpec" class="h-full min-h-0">
-            <Z8View
+            <component
+              :is="activeViewComponent"
               :spec="activeSpec"
               :view-request="activeViewRequest"
               :view-id="activeViewId"
