@@ -427,7 +427,7 @@ onBeforeUnmount(async () => {
           :disabled="loading"
           @click="printPdf"
         >
-          Print
+          Печать
         </button>
         <button
           type="button"
@@ -435,7 +435,7 @@ onBeforeUnmount(async () => {
           :disabled="loading"
           @click="download"
         >
-          Download
+          Загрузить
         </button>
       </div>
     </div>

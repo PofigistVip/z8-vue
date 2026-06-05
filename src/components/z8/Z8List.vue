@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, ref, watch } from 'vue'
+import { computed, inject, ref, useSlots, watch } from 'vue'
 
 import { Z8Client } from '../../z8/z8Client.js'
 import { formatZ8CellValue } from '../../z8/z8Format.js'
@@ -21,6 +21,7 @@ const props = defineProps({
 
 const injectedClient = inject('z8Client', null)
 const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Client()
+const slots = useSlots()
 
 const query = computed(() => props.control?.query ?? null)
 const listMode = computed(() => props.control?.listMode ?? 'listbox')
@@ -183,7 +184,9 @@ function formatField(row, name) {
 
 function rowWrapperClass(row, ridx) {
   const selected = isRowSelected(row, ridx)
+  const customRow = Boolean(slots.row)
   return [
+    customRow ? 'rounded-md overflow-hidden' : '',
     selected ? 'bg-sky-100 ring-1 ring-inset ring-sky-300' : ridx % 2 === 1 ? 'bg-white' : '',
     selectable.value
       ? ['cursor-pointer', !selected ? 'hover:bg-slate-100' : '']

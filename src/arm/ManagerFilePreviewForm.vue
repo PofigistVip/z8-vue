@@ -92,11 +92,15 @@ watch(
 )
 
 function fileTitle(file) {
-  const t = file?.details?.fileType
-  if (typeof t === 'string' && t.trim()) return t.trim()
-  const n = file?.name
-  if (typeof n === 'string' && n.trim()) return n.trim()
-  return 'Файл'
+  const parts = [
+    file?.details?.fileType,
+    file?.details?.authorAgent,
+    file?.name,
+  ]
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean)
+
+  return parts.length ? parts.join(' - ') : 'Файл'
 }
 
 function fileMetaRight(file) {
@@ -149,7 +153,7 @@ function toggleRight(key) {
             class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
             @click="toggleLeft(fileKey(f, idx))"
           >
-            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="min-w-0 flex-1 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
             <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
           </button>
         </div>
@@ -163,7 +167,7 @@ function toggleRight(key) {
             class="flex w-full shrink-0 cursor-pointer items-center justify-between gap-3 border-b border-slate-200 bg-slate-100 px-3 py-2 text-left text-sm"
             @click="toggleLeft(fileKey(leftFileSections.open.file, leftFileSections.open.idx))"
           >
-            <span class="min-w-0 truncate font-medium text-slate-800">
+            <span class="min-w-0 flex-1 truncate font-medium text-slate-800">
               {{ fileTitle(leftFileSections.open.file) }}
             </span>
             <span class="shrink-0 text-xs text-slate-500">
@@ -171,15 +175,6 @@ function toggleRight(key) {
             </span>
           </button>
           <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white p-2">
-            <a
-              v-if="filePreviewUrl(leftFileSections.open.file)"
-              class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
-              :href="filePreviewUrl(leftFileSections.open.file)"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Открыть
-            </a>
             <Z8PdfPreview
               v-if="filePreviewUrl(leftFileSections.open.file)"
               class="min-h-0 flex-1"
@@ -200,7 +195,7 @@ function toggleRight(key) {
             class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
             @click="toggleLeft(fileKey(f, idx))"
           >
-            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="min-w-0 flex-1 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
             <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
           </button>
         </div>
@@ -224,7 +219,7 @@ function toggleRight(key) {
             class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
             @click="toggleRight(fileKey(f, idx))"
           >
-            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="min-w-0 flex-1 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
             <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
           </button>
         </div>
@@ -238,7 +233,7 @@ function toggleRight(key) {
             class="flex w-full shrink-0 cursor-pointer items-center justify-between gap-3 border-b border-slate-200 bg-slate-100 px-3 py-2 text-left text-sm"
             @click="toggleRight(fileKey(rightFileSections.open.file, rightFileSections.open.idx))"
           >
-            <span class="min-w-0 truncate font-medium text-slate-800">
+            <span class="min-w-0 flex-1 truncate font-medium text-slate-800">
               {{ fileTitle(rightFileSections.open.file) }}
             </span>
             <span class="shrink-0 text-xs text-slate-500">
@@ -246,15 +241,6 @@ function toggleRight(key) {
             </span>
           </button>
           <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white p-2">
-            <a
-              v-if="filePreviewUrl(rightFileSections.open.file)"
-              class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
-              :href="filePreviewUrl(rightFileSections.open.file)"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Открыть
-            </a>
             <Z8PdfPreview
               v-if="filePreviewUrl(rightFileSections.open.file)"
               class="min-h-0 flex-1"
@@ -275,7 +261,7 @@ function toggleRight(key) {
             class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
             @click="toggleRight(fileKey(f, idx))"
           >
-            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="min-w-0 flex-1 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
             <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
           </button>
         </div>
