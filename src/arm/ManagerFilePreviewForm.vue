@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { formatZ8DateTime } from '../z8/z8Format.js'
+import Z8PdfPreview from '../components/z8/Z8PdfPreview.vue'
 
 const props = defineProps({
   record: { type: Object, required: true },
@@ -27,19 +28,41 @@ function normalizeFilesValue(raw) {
 
 const files = computed(() => normalizeFilesValue(props.record?.['актуальнаяВерсия.файлы']))
 
+function isPdfFile(file) {
+  const name = typeof file?.name === 'string' ? file.name : ''
+  const path = typeof file?.path === 'string' ? file.path : ''
+  return (
+    name.trim().toLowerCase().endsWith('.pdf') ||
+    path.trim().toLowerCase().endsWith('.pdf')
+  )
+}
+
 function fileType(file) {
   const t = file?.details?.fileType
   return typeof t === 'string' ? t.trim() : ''
 }
 
-const leftFiles = computed(() => files.value.filter((f) => LEFT_FILE_TYPES.has(fileType(f))))
-const rightFiles = computed(() => files.value.filter((f) => RIGHT_FILE_TYPES.has(fileType(f))))
+const leftFiles = computed(() =>
+  files.value.filter((f) => LEFT_FILE_TYPES.has(fileType(f)) && isPdfFile(f))
+)
+const rightFiles = computed(() =>
+  files.value.filter((f) => RIGHT_FILE_TYPES.has(fileType(f)) && isPdfFile(f))
+)
 
 function fileKey(file, idx) {
   const id = file?.id
   if (typeof id === 'string' && id.trim()) return id.trim()
   return String(idx)
 }
+
+function findOpenFile(fileList, openId) {
+  if (!openId) return null
+  const idx = fileList.findIndex((f, i) => fileKey(f, i) === openId)
+  return idx >= 0 ? fileList[idx] : null
+}
+
+const openLeftFile = computed(() => findOpenFile(leftFiles.value, openLeftId.value))
+const openRightFile = computed(() => findOpenFile(rightFiles.value, openRightId.value))
 
 function resetOpenDefaults() {
   const left = leftFiles.value
@@ -80,6 +103,10 @@ function filePreviewUrl(file) {
   return `${window.location.origin}/${pathEnc}?id=${idEnc}&session=${sessionEnc}&preview=true`
 }
 
+function fileDownloadName(file) {
+  return typeof file?.name === 'string' && file.name.trim() ? file.name.trim() : 'document.pdf'
+}
+
 function toggleLeft(key) {
   openLeftId.value = openLeftId.value === key ? '' : key
 }
@@ -95,93 +122,106 @@ function toggleRight(key) {
       <div class="shrink-0 border-b px-4 py-3">
         <div class="text-sm font-semibold text-slate-800">Файлы</div>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-3">
-        <div v-if="!leftFiles.length" class="text-sm text-slate-600">
-          Нет файлов для предпросмотра.
-        </div>
-        <div v-else class="space-y-2">
-          <details
+
+      <div v-if="!leftFiles.length" class="p-3 text-sm text-slate-600">
+        Нет файлов для предпросмотра.
+      </div>
+      <template v-else>
+        <div class="shrink-0 space-y-2 p-3 pb-0">
+          <button
             v-for="(f, idx) in leftFiles"
             :key="fileKey(f, idx)"
-            class="rounded-md border border-slate-200 bg-slate-50"
-            :open="openLeftId === fileKey(f, idx)"
+            type="button"
+            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors"
+            :class="
+              openLeftId === fileKey(f, idx)
+                ? 'border-slate-400 bg-slate-100'
+                : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+            "
+            @click="toggleLeft(fileKey(f, idx))"
           >
-            <summary
-              class="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm"
-              @click.prevent="toggleLeft(fileKey(f, idx))"
-            >
-              <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
-              <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
-            </summary>
-            <div class="border-t border-slate-200 bg-white p-2">
-              <a
-                v-if="filePreviewUrl(f)"
-                class="mb-2 inline-block text-xs text-slate-500 underline hover:text-slate-800"
-                :href="filePreviewUrl(f)"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Открыть
-              </a>
-              <iframe
-                v-if="filePreviewUrl(f)"
-                :src="filePreviewUrl(f)"
-                class="h-[520px] w-full rounded-md border border-slate-200"
-              />
-              <div v-else class="text-xs text-slate-600">
-                Нет ссылки для предпросмотра.
-              </div>
-            </div>
-          </details>
+            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
+          </button>
         </div>
-      </div>
+
+        <div
+          v-if="openLeftFile"
+          class="flex min-h-0 flex-1 flex-col overflow-hidden p-3 pt-2"
+        >
+          <a
+            v-if="filePreviewUrl(openLeftFile)"
+            class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
+            :href="filePreviewUrl(openLeftFile)"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Открыть
+          </a>
+          <Z8PdfPreview
+            v-if="filePreviewUrl(openLeftFile)"
+            class="min-h-0 flex-1"
+            :src="filePreviewUrl(openLeftFile)"
+            :filename="fileDownloadName(openLeftFile)"
+          />
+          <div v-else class="text-xs text-slate-600">
+            Нет ссылки для предпросмотра.
+          </div>
+        </div>
+      </template>
     </section>
 
     <section class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div class="shrink-0 border-b px-4 py-3">
         <div class="text-sm font-semibold text-slate-800">Файлы</div>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-3">
-        <div v-if="!rightFiles.length" class="text-sm text-slate-600">
-          Нет файлов для предпросмотра.
-        </div>
-        <div v-else class="space-y-2">
-          <details
+
+      <div v-if="!rightFiles.length" class="p-3 text-sm text-slate-600">
+        Нет файлов для предпросмотра.
+      </div>
+      <template v-else>
+        <div class="shrink-0 space-y-2 p-3 pb-0">
+          <button
             v-for="(f, idx) in rightFiles"
             :key="fileKey(f, idx)"
-            class="rounded-md border border-slate-200 bg-slate-50"
-            :open="openRightId === fileKey(f, idx)"
+            type="button"
+            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors"
+            :class="
+              openRightId === fileKey(f, idx)
+                ? 'border-slate-400 bg-slate-100'
+                : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+            "
+            @click="toggleRight(fileKey(f, idx))"
           >
-            <summary
-              class="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm"
-              @click.prevent="toggleRight(fileKey(f, idx))"
-            >
-              <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
-              <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
-            </summary>
-            <div class="border-t border-slate-200 bg-white p-2">
-              <a
-                v-if="filePreviewUrl(f)"
-                class="mb-2 inline-block text-xs text-slate-500 underline hover:text-slate-800"
-                :href="filePreviewUrl(f)"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Открыть
-              </a>
-              <iframe
-                v-if="filePreviewUrl(f)"
-                :src="filePreviewUrl(f)"
-                class="h-[520px] w-full rounded-md border border-slate-200"
-              />
-              <div v-else class="text-xs text-slate-600">
-                Нет ссылки для предпросмотра.
-              </div>
-            </div>
-          </details>
+            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
+          </button>
         </div>
-      </div>
+
+        <div
+          v-if="openRightFile"
+          class="flex min-h-0 flex-1 flex-col overflow-hidden p-3 pt-2"
+        >
+          <a
+            v-if="filePreviewUrl(openRightFile)"
+            class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
+            :href="filePreviewUrl(openRightFile)"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Открыть
+          </a>
+          <Z8PdfPreview
+            v-if="filePreviewUrl(openRightFile)"
+            class="min-h-0 flex-1"
+            :src="filePreviewUrl(openRightFile)"
+            :filename="fileDownloadName(openRightFile)"
+          />
+          <div v-else class="text-xs text-slate-600">
+            Нет ссылки для предпросмотра.
+          </div>
+        </div>
+      </template>
     </section>
   </div>
 </template>
-
