@@ -2,6 +2,7 @@
 import { inject, nextTick, onMounted, ref } from 'vue'
 
 import Z8View from '../components/z8/Z8View.vue'
+import ManagerFilePreviewForm from './ManagerFilePreviewForm.vue'
 import { Z8Client } from '../z8/z8Client.js'
 import { formatZ8UnixCellValue } from '../z8/z8Format.js'
 
@@ -192,6 +193,13 @@ onMounted(() => {
               <span class="shrink-0">{{ formatField('срочность') }}</span>
             </div>
           </div>
+        </template>
+
+        <template #form="{ record }">
+          <ManagerFilePreviewForm
+            :record="record"
+            :client-session="String(client?._http?.session ?? '')"
+          />
         </template>
       </Z8View>
       <div
