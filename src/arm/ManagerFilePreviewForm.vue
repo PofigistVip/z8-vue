@@ -55,14 +55,28 @@ function fileKey(file, idx) {
   return String(idx)
 }
 
-function findOpenFile(fileList, openId) {
-  if (!openId) return null
-  const idx = fileList.findIndex((f, i) => fileKey(f, i) === openId)
-  return idx >= 0 ? fileList[idx] : null
+function splitFilesAroundOpen(fileList, openId) {
+  const openIndex = fileList.findIndex((f, i) => fileKey(f, i) === openId)
+  if (openIndex < 0) {
+    return {
+      before: fileList.map((file, idx) => ({ file, idx })),
+      open: null,
+      after: [],
+    }
+  }
+  return {
+    before: fileList.slice(0, openIndex).map((file, i) => ({ file, idx: i })),
+    open: { file: fileList[openIndex], idx: openIndex },
+    after: fileList.slice(openIndex + 1).map((file, i) => ({ file, idx: openIndex + 1 + i })),
+  }
 }
 
-const openLeftFile = computed(() => findOpenFile(leftFiles.value, openLeftId.value))
-const openRightFile = computed(() => findOpenFile(rightFiles.value, openRightId.value))
+const leftFileSections = computed(() =>
+  splitFilesAroundOpen(leftFiles.value, openLeftId.value)
+)
+const rightFileSections = computed(() =>
+  splitFilesAroundOpen(rightFiles.value, openRightId.value)
+)
 
 function resetOpenDefaults() {
   const left = leftFiles.value
@@ -126,18 +140,13 @@ function toggleRight(key) {
       <div v-if="!leftFiles.length" class="p-3 text-sm text-slate-600">
         Нет файлов для предпросмотра.
       </div>
-      <template v-else>
-        <div class="shrink-0 space-y-2 p-3 pb-0">
+      <div v-else class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3">
+        <div v-if="leftFileSections.before.length" class="shrink-0 space-y-2">
           <button
-            v-for="(f, idx) in leftFiles"
+            v-for="{ file: f, idx } in leftFileSections.before"
             :key="fileKey(f, idx)"
             type="button"
-            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors"
-            :class="
-              openLeftId === fileKey(f, idx)
-                ? 'border-slate-400 bg-slate-100'
-                : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
-            "
+            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
             @click="toggleLeft(fileKey(f, idx))"
           >
             <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
@@ -146,29 +155,56 @@ function toggleRight(key) {
         </div>
 
         <div
-          v-if="openLeftFile"
-          class="flex min-h-0 flex-1 flex-col overflow-hidden p-3 pt-2"
+          v-if="leftFileSections.open"
+          class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50"
         >
-          <a
-            v-if="filePreviewUrl(openLeftFile)"
-            class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
-            :href="filePreviewUrl(openLeftFile)"
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            class="flex w-full shrink-0 cursor-pointer items-center justify-between gap-3 border-b border-slate-200 bg-slate-100 px-3 py-2 text-left text-sm"
+            @click="toggleLeft(fileKey(leftFileSections.open.file, leftFileSections.open.idx))"
           >
-            Открыть
-          </a>
-          <Z8PdfPreview
-            v-if="filePreviewUrl(openLeftFile)"
-            class="min-h-0 flex-1"
-            :src="filePreviewUrl(openLeftFile)"
-            :filename="fileDownloadName(openLeftFile)"
-          />
-          <div v-else class="text-xs text-slate-600">
-            Нет ссылки для предпросмотра.
+            <span class="min-w-0 truncate font-medium text-slate-800">
+              {{ fileTitle(leftFileSections.open.file) }}
+            </span>
+            <span class="shrink-0 text-xs text-slate-500">
+              {{ fileMetaRight(leftFileSections.open.file) }}
+            </span>
+          </button>
+          <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white p-2">
+            <a
+              v-if="filePreviewUrl(leftFileSections.open.file)"
+              class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
+              :href="filePreviewUrl(leftFileSections.open.file)"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Открыть
+            </a>
+            <Z8PdfPreview
+              v-if="filePreviewUrl(leftFileSections.open.file)"
+              class="min-h-0 flex-1"
+              :src="filePreviewUrl(leftFileSections.open.file)"
+              :filename="fileDownloadName(leftFileSections.open.file)"
+            />
+            <div v-else class="text-xs text-slate-600">
+              Нет ссылки для предпросмотра.
+            </div>
           </div>
         </div>
-      </template>
+
+        <div v-if="leftFileSections.after.length" class="shrink-0 space-y-2">
+          <button
+            v-for="{ file: f, idx } in leftFileSections.after"
+            :key="fileKey(f, idx)"
+            type="button"
+            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
+            @click="toggleLeft(fileKey(f, idx))"
+          >
+            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
+          </button>
+        </div>
+      </div>
     </section>
 
     <section class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -179,18 +215,13 @@ function toggleRight(key) {
       <div v-if="!rightFiles.length" class="p-3 text-sm text-slate-600">
         Нет файлов для предпросмотра.
       </div>
-      <template v-else>
-        <div class="shrink-0 space-y-2 p-3 pb-0">
+      <div v-else class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-3">
+        <div v-if="rightFileSections.before.length" class="shrink-0 space-y-2">
           <button
-            v-for="(f, idx) in rightFiles"
+            v-for="{ file: f, idx } in rightFileSections.before"
             :key="fileKey(f, idx)"
             type="button"
-            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors"
-            :class="
-              openRightId === fileKey(f, idx)
-                ? 'border-slate-400 bg-slate-100'
-                : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
-            "
+            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
             @click="toggleRight(fileKey(f, idx))"
           >
             <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
@@ -199,29 +230,56 @@ function toggleRight(key) {
         </div>
 
         <div
-          v-if="openRightFile"
-          class="flex min-h-0 flex-1 flex-col overflow-hidden p-3 pt-2"
+          v-if="rightFileSections.open"
+          class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50"
         >
-          <a
-            v-if="filePreviewUrl(openRightFile)"
-            class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
-            :href="filePreviewUrl(openRightFile)"
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            class="flex w-full shrink-0 cursor-pointer items-center justify-between gap-3 border-b border-slate-200 bg-slate-100 px-3 py-2 text-left text-sm"
+            @click="toggleRight(fileKey(rightFileSections.open.file, rightFileSections.open.idx))"
           >
-            Открыть
-          </a>
-          <Z8PdfPreview
-            v-if="filePreviewUrl(openRightFile)"
-            class="min-h-0 flex-1"
-            :src="filePreviewUrl(openRightFile)"
-            :filename="fileDownloadName(openRightFile)"
-          />
-          <div v-else class="text-xs text-slate-600">
-            Нет ссылки для предпросмотра.
+            <span class="min-w-0 truncate font-medium text-slate-800">
+              {{ fileTitle(rightFileSections.open.file) }}
+            </span>
+            <span class="shrink-0 text-xs text-slate-500">
+              {{ fileMetaRight(rightFileSections.open.file) }}
+            </span>
+          </button>
+          <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white p-2">
+            <a
+              v-if="filePreviewUrl(rightFileSections.open.file)"
+              class="mb-2 inline-block shrink-0 text-xs text-slate-500 underline hover:text-slate-800"
+              :href="filePreviewUrl(rightFileSections.open.file)"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Открыть
+            </a>
+            <Z8PdfPreview
+              v-if="filePreviewUrl(rightFileSections.open.file)"
+              class="min-h-0 flex-1"
+              :src="filePreviewUrl(rightFileSections.open.file)"
+              :filename="fileDownloadName(rightFileSections.open.file)"
+            />
+            <div v-else class="text-xs text-slate-600">
+              Нет ссылки для предпросмотра.
+            </div>
           </div>
         </div>
-      </template>
+
+        <div v-if="rightFileSections.after.length" class="shrink-0 space-y-2">
+          <button
+            v-for="{ file: f, idx } in rightFileSections.after"
+            :key="fileKey(f, idx)"
+            type="button"
+            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100"
+            @click="toggleRight(fileKey(f, idx))"
+          >
+            <span class="min-w-0 truncate font-medium text-slate-800">{{ fileTitle(f) }}</span>
+            <span class="shrink-0 text-xs text-slate-500">{{ fileMetaRight(f) }}</span>
+          </button>
+        </div>
+      </div>
     </section>
   </div>
 </template>
