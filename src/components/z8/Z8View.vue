@@ -100,6 +100,12 @@ const selectedIndex = computed(() => {
 })
 const selectedRecord = computed(() => records.value[selectedIndex.value] ?? null)
 
+const hasMainListSelection = computed(() => {
+  const id = selectedRecordId.value
+  if (!id || !records.value.length) return false
+  return records.value.some((r) => r?.recordId === id)
+})
+
 const isStandardMode = computed(() => viewMode.value === 'standard')
 const isTableMode = computed(() => viewMode.value === 'table')
 
@@ -357,66 +363,72 @@ async function destroySelectedRecord() {
       <div
         class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
       >
-        <button
-          type="button"
-          class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="createSubmitting || destroySubmitting || actionSubmitting"
-          @click="createNewRecord"
-        >
-          {{ createSubmitting ? 'Создание…' : 'Новая запись' }}
-        </button>
-
-        <button
-          type="button"
-          class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="!selectedRecordId || createSubmitting || destroySubmitting || actionSubmitting"
-          @click="destroySelectedRecord"
-        >
-          {{ destroySubmitting ? 'Удаление…' : 'Удалить запись' }}
-        </button>
-
-        <div
-          class="inline-flex rounded-md border border-slate-300 p-0.5"
-          role="group"
-          aria-label="Режим отображения"
+        <slot
+          name="toolbar"
+          :record="selectedRecord"
+          :has-selection="hasMainListSelection"
         >
           <button
             type="button"
-            class="rounded px-3 py-1.5 text-sm font-medium transition-colors"
-            :class="
-              isStandardMode
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-700 hover:bg-slate-50'
-            "
-            @click="viewMode = 'standard'"
+            class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="createSubmitting || destroySubmitting || actionSubmitting"
+            @click="createNewRecord"
           >
-            Стандартная
+            {{ createSubmitting ? 'Создание…' : 'Новая запись' }}
           </button>
+
           <button
             type="button"
-            class="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            :class="
-              isTableMode
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-700 hover:bg-slate-50'
-            "
-            :disabled="!hasTableView"
-            @click="viewMode = 'table'"
+            class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!selectedRecordId || createSubmitting || destroySubmitting || actionSubmitting"
+            @click="destroySelectedRecord"
           >
-            Табличная
+            {{ destroySubmitting ? 'Удаление…' : 'Удалить запись' }}
           </button>
-        </div>
 
-        <button
-          v-for="(act, idx) in toolbarActions"
-          :key="`${act.name}-${idx}`"
-          type="button"
-          class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="isToolbarActionDisabled(act)"
-          @click="runToolbarAction(act)"
-        >
-          {{ typeof act.header === 'string' && act.header ? act.header : act.name }}
-        </button>
+          <div
+            class="inline-flex rounded-md border border-slate-300 p-0.5"
+            role="group"
+            aria-label="Режим отображения"
+          >
+            <button
+              type="button"
+              class="rounded px-3 py-1.5 text-sm font-medium transition-colors"
+              :class="
+                isStandardMode
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-700 hover:bg-slate-50'
+              "
+              @click="viewMode = 'standard'"
+            >
+              Стандартная
+            </button>
+            <button
+              type="button"
+              class="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              :class="
+                isTableMode
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-700 hover:bg-slate-50'
+              "
+              :disabled="!hasTableView"
+              @click="viewMode = 'table'"
+            >
+              Табличная
+            </button>
+          </div>
+
+          <button
+            v-for="(act, idx) in toolbarActions"
+            :key="`${act.name}-${idx}`"
+            type="button"
+            class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="isToolbarActionDisabled(act)"
+            @click="runToolbarAction(act)"
+          >
+            {{ typeof act.header === 'string' && act.header ? act.header : act.name }}
+          </button>
+        </slot>
       </div>
       <div
         v-if="actionError"

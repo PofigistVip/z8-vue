@@ -222,7 +222,11 @@ function onSortHeader(col) {
 
 function syncSelectionAfterLoad(rows) {
   if (listMode.value === 'combobox') return
-  if (!selectable.value || !rows.length) return
+  if (!selectable.value) return
+  if (!rows.length) {
+    emit('select-row', { row: undefined, index: -1, key: undefined })
+    return
+  }
   const rk = rowKey.value
   const sk = selectedKey.value
   if (rk && sk && rows.some((r) => r?.[rk] === sk)) return
