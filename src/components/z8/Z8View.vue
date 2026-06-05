@@ -463,7 +463,13 @@ async function destroySelectedRecord() {
           Нет записей.
         </div>
         <div v-else class="min-h-0 flex-1 overflow-hidden">
-          <Z8Form :spec="specState" :record="selectedRecord" />
+          <slot
+            name="form"
+            :spec="specState"
+            :record="selectedRecord"
+          >
+            <Z8Form :spec="specState" :record="selectedRecord" />
+          </slot>
         </div>
       </section>
     </div>

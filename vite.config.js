@@ -13,6 +13,14 @@ export default defineConfig({
         target: 'http://localhost:9080',
         changeOrigin: true,
       },
+      '/storage': {
+        target: 'http://localhost:9080',
+        changeOrigin: true,
+      },
+      '^/storage%2F': {
+        target: 'http://localhost:9080',
+        changeOrigin: true,
+      },
     },
   },
 })
