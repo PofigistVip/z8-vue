@@ -1,8 +1,13 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import { formatZ8DateTime } from '../z8/z8Format.js'
 import Z8PdfPreview from '../components/z8/Z8PdfPreview.vue'
+import Z8ResizeDivider from '../components/z8/Z8ResizeDivider.vue'
+import { useResizableWidth } from '../components/z8/useResizableWidth.js'
+
+const MIN_COLUMN_WIDTH = 200
+const DIVIDER_WIDTH = 6
 
 const props = defineProps({
   record: { type: Object, required: true },
@@ -14,6 +19,39 @@ const RIGHT_FILE_TYPES = new Set(['Проект документа', 'Прило
 
 const openLeftId = ref('')
 const openRightId = ref('')
+const columnsRef = ref(null)
+const leftColumnUserSized = ref(false)
+
+function getContainerWidth() {
+  return columnsRef.value?.offsetWidth ?? 0
+}
+
+function getMaxLeftWidth() {
+  const container = getContainerWidth()
+  return Math.max(MIN_COLUMN_WIDTH, container - MIN_COLUMN_WIDTH - DIVIDER_WIDTH)
+}
+
+const {
+  width: leftColumnWidth,
+  applyDelta: applyLeftColumnDeltaInternal,
+  setWidth: setLeftColumnWidth,
+} = useResizableWidth(0, {
+  min: MIN_COLUMN_WIDTH,
+  max: () => getMaxLeftWidth(),
+})
+
+function applyLeftColumnDelta(dx) {
+  leftColumnUserSized.value = true
+  applyLeftColumnDeltaInternal(dx)
+}
+
+function initLeftColumnWidth() {
+  if (leftColumnUserSized.value) return
+  const container = getContainerWidth()
+  if (container > 0) {
+    setLeftColumnWidth((container - DIVIDER_WIDTH) / 2)
+  }
+}
 
 function normalizeFilesValue(raw) {
   if (Array.isArray(raw)) return raw
@@ -87,9 +125,16 @@ function resetOpenDefaults() {
 
 watch(
   () => props.record?.recordId,
-  () => resetOpenDefaults(),
+  () => {
+    resetOpenDefaults()
+    void nextTick(initLeftColumnWidth)
+  },
   { immediate: true }
 )
+
+onMounted(() => {
+  void nextTick(initLeftColumnWidth)
+})
 
 function fileTitle(file) {
   const parts = [
@@ -135,8 +180,11 @@ function toggleRight(key) {
 </script>
 
 <template>
-  <div class="grid h-full min-h-0 grid-cols-2 gap-4">
-    <section class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+  <div ref="columnsRef" class="flex h-full min-h-0">
+    <section
+      class="flex shrink-0 min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white"
+      :style="{ width: `${leftColumnWidth}px` }"
+    >
       <div class="shrink-0 border-b px-4 py-3">
         <div class="text-sm font-semibold text-slate-800">Файлы</div>
       </div>
@@ -202,7 +250,9 @@ function toggleRight(key) {
       </div>
     </section>
 
-    <section class="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <Z8ResizeDivider @resize="applyLeftColumnDelta" />
+
+    <section class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div class="shrink-0 border-b px-4 py-3">
         <div class="text-sm font-semibold text-slate-800">Файлы</div>
       </div>

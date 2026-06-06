@@ -1,7 +1,9 @@
 <script setup>
 import { inject, nextTick, onMounted, ref } from 'vue'
 
+import Z8ResizeDivider from '../components/z8/Z8ResizeDivider.vue'
 import Z8View from '../components/z8/Z8View.vue'
+import { useResizableWidth } from '../components/z8/useResizableWidth.js'
 import ManagerFilePreviewForm from './ManagerFilePreviewForm.vue'
 import { Z8Client } from '../z8/z8Client.js'
 import { formatZ8UnixCellValue } from '../z8/z8Format.js'
@@ -24,6 +26,11 @@ const sectionsLoading = ref(false)
 const sectionsError = ref(null)
 const selectedSectionKey = ref('')
 const selectedSectionId = ref(null)
+
+const { width: sectionsWidth, applyDelta: applySectionsDelta } = useResizableWidth(224, {
+  min: 160,
+  max: 480,
+})
 
 function sectionKey(row, index) {
   const id = row?.recordId
@@ -106,9 +113,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 gap-4">
+  <div class="flex h-full min-h-0">
     <aside
-      class="flex w-56 shrink-0 min-h-0 flex-col rounded-lg border border-slate-200 bg-white"
+      class="flex shrink-0 min-h-0 flex-col rounded-lg border border-slate-200 bg-white"
+      :style="{ width: `${sectionsWidth}px` }"
     >
       <div class="shrink-0 border-b px-3 py-2">
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -162,6 +170,8 @@ onMounted(() => {
         </ul>
       </div>
     </aside>
+
+    <Z8ResizeDivider @resize="applySectionsDelta" />
 
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <Z8View

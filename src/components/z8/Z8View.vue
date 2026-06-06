@@ -5,6 +5,8 @@ import { Z8Client } from '../../z8/z8Client.js'
 import Z8ActionParamsDialog from './Z8ActionParamsDialog.vue'
 import Z8Form from './Z8Form.vue'
 import Z8Listbox from './Z8Listbox.vue'
+import Z8ResizeDivider from './Z8ResizeDivider.vue'
+import { useResizableWidth } from './useResizableWidth.js'
 
 const injectedClient = inject('z8Client', null)
 const client = injectedClient instanceof Z8Client ? injectedClient : new Z8Client()
@@ -23,6 +25,11 @@ const specState = ref(props.spec)
 const listboxRef = ref(null)
 const viewMode = ref('standard')
 const listboxRecord = {}
+
+const { width: listWidth, applyDelta: applyListDelta } = useResizableWidth(360, {
+  min: 240,
+  max: 560,
+})
 
 const actionDialogOpen = ref(false)
 const pendingAction = shallowRef(null)
@@ -438,8 +445,11 @@ async function destroySelectedRecord() {
       </div>
     </div>
 
-    <div v-if="isStandardMode" class="flex min-h-0 flex-1 gap-4">
-      <aside class="flex w-[360px] shrink-0 min-h-0 flex-col">
+    <div v-if="isStandardMode" class="flex min-h-0 flex-1">
+      <aside
+        class="flex shrink-0 min-h-0 flex-col"
+        :style="{ width: `${listWidth}px` }"
+      >
         <slot
           name="mainListbox"
           :control="listboxControl"
@@ -469,6 +479,8 @@ async function destroySelectedRecord() {
           </Z8Listbox>
         </slot>
       </aside>
+
+      <Z8ResizeDivider @resize="applyListDelta" />
 
       <section class="flex min-w-0 flex-1 min-h-0 flex-col">
         <div v-if="!selectedRecord" class="rounded-lg border bg-white p-4 text-sm text-slate-600">
