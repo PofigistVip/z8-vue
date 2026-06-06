@@ -5,6 +5,7 @@ import Z8ResizeDivider from '../components/z8/Z8ResizeDivider.vue'
 import Z8View from '../components/z8/Z8View.vue'
 import { useResizableWidth } from '../components/z8/useResizableWidth.js'
 import ManagerFilePreviewForm from './ManagerFilePreviewForm.vue'
+import ManagerRecordRequisitesTooltip from './ManagerRecordRequisitesTooltip.vue'
 import { Z8Client } from '../z8/z8Client.js'
 import { formatZ8UnixCellValue } from '../z8/z8Format.js'
 
@@ -26,6 +27,51 @@ const sectionsLoading = ref(false)
 const sectionsError = ref(null)
 const selectedSectionKey = ref('')
 const selectedSectionId = ref(null)
+
+const tooltipRow = ref(null)
+const tooltipAnchor = ref(null)
+const tooltipFormatField = ref(null)
+
+const TOOLTIP_HIDE_DELAY_MS = 120
+let hideTooltipTimer = null
+
+function clearHideTooltipTimer() {
+  if (hideTooltipTimer !== null) {
+    clearTimeout(hideTooltipTimer)
+    hideTooltipTimer = null
+  }
+}
+
+function hideRowTooltip() {
+  clearHideTooltipTimer()
+  tooltipRow.value = null
+  tooltipAnchor.value = null
+  tooltipFormatField.value = null
+  window.removeEventListener('scroll', hideRowTooltip, true)
+}
+
+function scheduleHideRowTooltip() {
+  clearHideTooltipTimer()
+  hideTooltipTimer = setTimeout(hideRowTooltip, TOOLTIP_HIDE_DELAY_MS)
+}
+
+function showRowTooltip(row, formatField, el) {
+  if (!el) return
+  clearHideTooltipTimer()
+  tooltipRow.value = row
+  tooltipFormatField.value = formatField
+  tooltipAnchor.value = el.getBoundingClientRect()
+  window.removeEventListener('scroll', hideRowTooltip, true)
+  window.addEventListener('scroll', hideRowTooltip, true)
+}
+
+function onTooltipHoverEnter() {
+  clearHideTooltipTimer()
+}
+
+function onTooltipHoverLeave() {
+  scheduleHideRowTooltip()
+}
 
 const { width: sectionsWidth, applyDelta: applySectionsDelta } = useResizableWidth(224, {
   min: 160,
@@ -228,6 +274,8 @@ onMounted(() => {
             :class="
               selected ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white'
             "
+            @mouseenter="showRowTooltip(row, formatField, $event.currentTarget)"
+            @mouseleave="scheduleHideRowTooltip"
           >
             <div class="flex items-baseline justify-between gap-2 text-xs">
               <span class="min-w-0 truncate font-semibold text-slate-900">
@@ -260,4 +308,15 @@ onMounted(() => {
       </div>
     </div>
   </div>
+
+  <Teleport to="body">
+    <ManagerRecordRequisitesTooltip
+      :visible="Boolean(tooltipRow)"
+      :anchor="tooltipAnchor"
+      :row="tooltipRow"
+      :format-field="tooltipFormatField ?? (() => '—')"
+      @hover-enter="onTooltipHoverEnter"
+      @hover-leave="onTooltipHoverLeave"
+    />
+  </Teleport>
 </template>
