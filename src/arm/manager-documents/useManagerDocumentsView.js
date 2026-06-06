@@ -62,6 +62,24 @@ export function useManagerDocumentsView(props) {
     scheduleHideRowTooltip()
   }
 
+  function toggleRowTooltip(row, formatField, el) {
+    const current = tooltipRow.value
+    const currentId = current?.recordId
+    const rowId = row?.recordId
+    if (
+      current &&
+      currentId !== undefined &&
+      currentId !== null &&
+      rowId !== undefined &&
+      rowId !== null &&
+      String(currentId) === String(rowId)
+    ) {
+      hideRowTooltip()
+    } else {
+      showRowTooltip(row, formatField, el)
+    }
+  }
+
   const { width: sectionsWidth, applyDelta: applySectionsDelta } = useResizableWidth(224, {
     min: 160,
     max: 480,
@@ -170,6 +188,8 @@ export function useManagerDocumentsView(props) {
     listBeforeRequest,
     selectSection,
     showRowTooltip,
+    hideRowTooltip,
+    toggleRowTooltip,
     scheduleHideRowTooltip,
     onTooltipHoverEnter,
     onTooltipHoverLeave,

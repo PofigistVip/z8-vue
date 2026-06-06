@@ -1,6 +1,7 @@
 <script setup>
-import { computed, inject } from 'vue'
+import { computed, inject, onUnmounted, watch } from 'vue'
 
+import ManagerRecordRequisitesTooltip from '../ManagerRecordRequisitesTooltip.vue'
 import Z8List from '../../components/z8/Z8List.vue'
 import { formatZ8UnixCellValue } from '../../z8/z8Format.js'
 import { MANAGER_DOCUMENTS_VIEW_KEY } from './constants.js'
@@ -13,6 +14,11 @@ const {
   onListSelectRow,
   onListServerResponse,
   reloadRecordsList,
+  tooltipRow,
+  tooltipAnchor,
+  tooltipFormatField,
+  toggleRowTooltip,
+  hideRowTooltip,
 } = inject(MANAGER_DOCUMENTS_VIEW_KEY)
 
 const listRangeLabel = computed(() => {
@@ -22,6 +28,35 @@ const listRangeLabel = computed(() => {
 })
 
 const listLoading = computed(() => Boolean(recordsListRef.value?.effectiveLoading))
+
+function onRequisitesClick(row, formatField, event) {
+  toggleRowTooltip(row, formatField, event.currentTarget)
+}
+
+function onSelectRow(payload) {
+  hideRowTooltip()
+  onListSelectRow(payload)
+}
+
+function onDocumentPointerDown(event) {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('[role="tooltip"]')) return
+  if (target.closest('[data-requisites-trigger]')) return
+  hideRowTooltip()
+}
+
+watch(tooltipRow, (row) => {
+  if (row) {
+    document.addEventListener('pointerdown', onDocumentPointerDown, true)
+  } else {
+    document.removeEventListener('pointerdown', onDocumentPointerDown, true)
+  }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown, true)
+})
 </script>
 
 <template>
@@ -65,7 +100,7 @@ const listLoading = computed(() => Boolean(recordsListRef.value?.effectiveLoadin
         ref="recordsListRef"
         :control="listboxControl"
         :record="listboxRecord"
-        @select-row="onListSelectRow"
+        @select-row="onSelectRow"
         @server-response="onListServerResponse"
       >
         <template #row="{ row, selected, formatField }">
@@ -81,7 +116,29 @@ const listLoading = computed(() => Boolean(recordsListRef.value?.effectiveLoadin
               <span class="min-w-0 truncate font-semibold text-slate-900">
                 {{ formatField('ОВУАвтора') }}
               </span>
-              <span class="shrink-0 text-slate-500">{{ formatZ8UnixCellValue(row?.датаМне) }}</span>
+              <div class="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  data-requisites-trigger
+                  class="inline-flex h-6 w-6 items-center justify-center rounded-md text-sky-600 hover:bg-slate-100"
+                  aria-label="Реквизиты"
+                  @click.stop="onRequisitesClick(row, formatField, $event)"
+                >
+                  <svg
+                    class="h-4 w-4 shrink-0"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM9 9a1 1 0 0 1 2 0v.01a1 1 0 1 1-2 0V9Zm1 4a1 1 0 1 0 0 2h.01a1 1 0 1 0 0-2H10Z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <span class="text-slate-500">{{ formatZ8UnixCellValue(row?.датаМне) }}</span>
+              </div>
             </div>
             <div class="mt-1 truncate text-sm text-slate-800">
               {{ formatField('заголовок') }}
@@ -95,4 +152,13 @@ const listLoading = computed(() => Boolean(recordsListRef.value?.effectiveLoadin
       </Z8List>
     </div>
   </div>
+
+  <Teleport to="body">
+    <ManagerRecordRequisitesTooltip
+      :visible="Boolean(tooltipRow)"
+      :anchor="tooltipAnchor"
+      :row="tooltipRow"
+      :format-field="tooltipFormatField ?? (() => '—')"
+    />
+  </Teleport>
 </template>
