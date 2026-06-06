@@ -3,6 +3,7 @@ import { inject, nextTick, onMounted, ref } from 'vue'
 import { useResizableWidth } from '../../components/z8/useResizableWidth.js'
 import { Z8Client } from '../../z8/z8Client.js'
 import { SECTIONS_REQUEST } from './constants.js'
+import { useManagerDocumentsList } from './useManagerDocumentsList.js'
 
 const TOOLTIP_HIDE_DELAY_MS = 120
 
@@ -103,9 +104,12 @@ export function useManagerDocumentsView(props) {
       rid !== undefined && rid !== null && String(rid).length > 0 ? String(rid) : null
   }
 
+  const listApi = useManagerDocumentsList(props, listBeforeRequest)
+
   async function reloadMainList() {
     await nextTick()
     await z8ViewRef.value?.reloadMainList?.()
+    await listApi.reloadRecordsList()
   }
 
   function selectSection(row, index) {
@@ -169,5 +173,6 @@ export function useManagerDocumentsView(props) {
     scheduleHideRowTooltip,
     onTooltipHoverEnter,
     onTooltipHoverLeave,
+    ...listApi,
   }
 }

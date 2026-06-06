@@ -17,6 +17,7 @@ const props = defineProps({
   control: { type: Object, required: true },
   record: { type: Object, required: true },
   variant: { type: String, default: 'default' },
+  filterText: { type: String, default: '' },
 })
 
 const injectedClient = inject('z8Client', null)
@@ -141,6 +142,26 @@ const sortedRows = computed(() => {
   })
 
   return rows
+})
+
+const LIST_FILTER_FIELDS = ['ОВУАвтора', 'заголовок', 'регНомер']
+
+function rowMatchesFilter(row, query) {
+  if (!query) return true
+  for (const field of LIST_FILTER_FIELDS) {
+    const raw = row?.[field]
+    if (raw !== null && raw !== undefined && String(raw).toLowerCase().includes(query)) {
+      return true
+    }
+  }
+  return false
+}
+
+const displayRows = computed(() => {
+  const rows = sortedRows.value
+  const query = props.filterText.trim().toLowerCase()
+  if (!query) return rows
+  return rows.filter((row) => rowMatchesFilter(row, query))
 })
 
 const rowKey = computed(() => props.control?.rowKey ?? null)
@@ -412,8 +433,15 @@ watch(
     </div>
 
     <template v-else>
-      <div v-if="!sortedRows.length && !effectiveLoading" class="shrink-0 text-xs text-slate-600">
-        Нет данных для текущей записи.
+      <div
+        v-if="!displayRows.length && !effectiveLoading"
+        class="shrink-0 text-xs text-slate-600"
+      >
+        {{
+          sortedRows.length && filterText.trim()
+            ? 'Нет совпадений по поиску.'
+            : 'Нет данных для текущей записи.'
+        }}
       </div>
 
       <div
@@ -425,7 +453,7 @@ watch(
           class="flex flex-col gap-1 p-1"
         >
           <div
-            v-for="(row, ridx) in sortedRows"
+            v-for="(row, ridx) in displayRows"
             :key="row?.recordId ?? row?.[`${query?.name}.recordId`] ?? ridx"
             :class="rowWrapperClass(row, ridx)"
             @click="onRowClick(row, ridx)"
@@ -468,7 +496,7 @@ watch(
           </thead>
           <tbody>
             <Z8ListItem
-              v-for="(row, ridx) in sortedRows"
+              v-for="(row, ridx) in displayRows"
               :key="row?.recordId ?? row?.[`${query?.name}.recordId`] ?? ridx"
               :row="row"
               :row-index="ridx"
