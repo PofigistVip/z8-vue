@@ -29,6 +29,7 @@ const listboxRecord = {}
 const { width: listWidth, applyDelta: applyListDelta } = useResizableWidth(360, {
   min: 240,
   max: 560,
+  storageKey: 'z8:panel-width:z8view-main-list',
 })
 
 const actionDialogOpen = ref(false)

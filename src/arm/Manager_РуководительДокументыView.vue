@@ -30,6 +30,7 @@ const selectedSectionId = ref(null)
 const { width: sectionsWidth, applyDelta: applySectionsDelta } = useResizableWidth(224, {
   min: 160,
   max: 480,
+  storageKey: 'z8:panel-width:manager-sections',
 })
 
 function sectionKey(row, index) {

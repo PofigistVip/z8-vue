@@ -20,7 +20,6 @@ const RIGHT_FILE_TYPES = new Set(['Проект документа', 'Прило
 const openLeftId = ref('')
 const openRightId = ref('')
 const columnsRef = ref(null)
-const leftColumnUserSized = ref(false)
 
 function getContainerWidth() {
   return columnsRef.value?.offsetWidth ?? 0
@@ -33,20 +32,19 @@ function getMaxLeftWidth() {
 
 const {
   width: leftColumnWidth,
-  applyDelta: applyLeftColumnDeltaInternal,
+  applyDelta: applyLeftColumnDelta,
   setWidth: setLeftColumnWidth,
+  isRestored: isLeftColumnRestored,
+  applyStoredWidth: applyLeftColumnStoredWidth,
 } = useResizableWidth(0, {
   min: MIN_COLUMN_WIDTH,
   max: () => getMaxLeftWidth(),
+  storageKey: 'z8:panel-width:manager-file-columns',
+  deferStorageRestore: true,
 })
 
-function applyLeftColumnDelta(dx) {
-  leftColumnUserSized.value = true
-  applyLeftColumnDeltaInternal(dx)
-}
-
 function initLeftColumnWidth() {
-  if (leftColumnUserSized.value) return
+  if (isLeftColumnRestored.value) return
   const container = getContainerWidth()
   if (container > 0) {
     setLeftColumnWidth((container - DIVIDER_WIDTH) / 2)
@@ -127,13 +125,16 @@ watch(
   () => props.record?.recordId,
   () => {
     resetOpenDefaults()
-    void nextTick(initLeftColumnWidth)
   },
   { immediate: true }
 )
 
 onMounted(() => {
-  void nextTick(initLeftColumnWidth)
+  void nextTick(() => {
+    if (!applyLeftColumnStoredWidth()) {
+      initLeftColumnWidth()
+    }
+  })
 })
 
 function fileTitle(file) {
