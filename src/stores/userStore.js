@@ -1,5 +1,18 @@
 import { reactive, readonly } from 'vue'
 
+function normalizeUserParameters(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  return { ...raw }
+}
+
+function normalizeLoginUser(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  return {
+    ...raw,
+    parameters: normalizeUserParameters(raw.parameters),
+  }
+}
+
 function jobFieldsFromRaw(raw) {
   return {
     isJob: raw.isJob === true,
@@ -68,7 +81,7 @@ export function applyLoginResponse(json) {
     state.loginError = msg
     return false
   }
-  const user = json.user && typeof json.user === 'object' ? { ...json.user } : null
+  const user = normalizeLoginUser(json.user)
   state.user = user
   const fromData = normalizeMenuData(user?.data)
   state.navEntries =
@@ -80,6 +93,19 @@ export function clearUserStore() {
   state.user = null
   state.navEntries = []
   state.loginError = null
+}
+
+export function getUserParameters() {
+  return normalizeUserParameters(state.user?.parameters)
+}
+
+export function getUserParameter(name) {
+  if (typeof name !== 'string' || !name) return undefined
+  return getUserParameters()[name]
+}
+
+export function getContractorId() {
+  return getUserParameter('контрагентId')
 }
 
 export function setUserStoreLoginError(message) {
