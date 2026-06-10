@@ -6,6 +6,12 @@ import Z8List from '../../components/z8/Z8List.vue'
 import { formatZ8UnixCellValue } from '../../z8/z8Format.js'
 import { MANAGER_DOCUMENTS_VIEW_KEY } from './constants.js'
 
+const view = inject(MANAGER_DOCUMENTS_VIEW_KEY)
+
+function bindRecordsListRef(el) {
+  view.recordsListRef.value = el
+}
+
 const {
   selectedSectionId,
   recordsListRef,
@@ -19,7 +25,7 @@ const {
   tooltipFormatField,
   toggleRowTooltip,
   hideRowTooltip,
-} = inject(MANAGER_DOCUMENTS_VIEW_KEY)
+} = view
 
 const listRangeLabel = computed(() => {
   const list = recordsListRef.value
@@ -97,7 +103,7 @@ onUnmounted(() => {
 
       <Z8List
         v-else
-        ref="recordsListRef"
+        :ref="bindRecordsListRef"
         :control="listboxControl"
         :record="listboxRecord"
         @select-row="onSelectRow"

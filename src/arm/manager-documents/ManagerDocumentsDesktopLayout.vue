@@ -9,10 +9,15 @@ import { formatZ8UnixCellValue } from '../../z8/z8Format.js'
 import { MANAGER_DOCUMENTS_VIEW_KEY } from './constants.js'
 import ManagerDocumentsRecordOperations from './ManagerDocumentsRecordOperations.vue'
 
+const view = inject(MANAGER_DOCUMENTS_VIEW_KEY)
+
+function bindZ8ViewRef(el) {
+  view.z8ViewRef.value = el
+}
+
 const {
   props,
   client,
-  z8ViewRef,
   sections,
   sectionsLoading,
   sectionsError,
@@ -35,7 +40,7 @@ const {
   recordOperationsFor,
   openRecordOperation,
   operationSubmitting,
-} = inject(MANAGER_DOCUMENTS_VIEW_KEY)
+} = view
 </script>
 
 <template>
@@ -102,7 +107,7 @@ const {
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <Z8View
         v-if="selectedSectionId"
-        ref="z8ViewRef"
+        :ref="bindZ8ViewRef"
         :spec="props.spec"
         :view-request="props.viewRequest"
         :view-id="props.viewId"

@@ -4,9 +4,11 @@ import { useResizableWidth } from '../../components/z8/useResizableWidth.js'
 import { getContractorId } from '../../stores/userStore.js'
 import { Z8Client } from '../../z8/z8Client.js'
 import { SECTIONS_REQUEST } from './constants.js'
+import { loadCertificates, signFile } from '../../crypto/useCryptoPro.js'
 import {
   buildProcessTaskPayload,
   getRecordWorkflowOperations,
+  getSignableFile,
 } from './getRecordWorkflowOperations.js'
 import { useManagerDocumentsList } from './useManagerDocumentsList.js'
 
@@ -151,13 +153,51 @@ export function useManagerDocumentsView(props) {
   })
 
   const operationCommentRequired = computed(() => pendingOperation.value?.commentRequired === true)
+  const operationSignatureRequired = computed(
+    () => pendingOperation.value?.signatureRequired === true
+  )
+
+  const certificates = ref([])
+  const certificatesLoading = ref(false)
+  const certificatesError = ref(null)
+  const selectedCertificateId = ref('')
+
+  function resetCertificateState() {
+    certificates.value = []
+    certificatesLoading.value = false
+    certificatesError.value = null
+    selectedCertificateId.value = ''
+  }
+
+  async function loadOperationCertificates() {
+    certificatesLoading.value = true
+    certificatesError.value = null
+    certificates.value = []
+    selectedCertificateId.value = ''
+    try {
+      const certs = await loadCertificates()
+      certificates.value = certs
+      if (certs.length === 1 && certs[0]?.id) {
+        selectedCertificateId.value = String(certs[0].id)
+      }
+    } catch (e) {
+      certificatesError.value =
+        e instanceof Error ? e.message : 'Не настроена возможность подписания файлов электронной подписью.'
+    } finally {
+      certificatesLoading.value = false
+    }
+  }
 
   function openRecordOperation(record, operation) {
     if (!record || !operation) return
     pendingRecord.value = record
     pendingOperation.value = operation
     operationError.value = null
+    resetCertificateState()
     operationDialogOpen.value = true
+    if (operation.signatureRequired) {
+      void loadOperationCertificates()
+    }
   }
 
   function closeRecordOperationDialog() {
@@ -165,9 +205,10 @@ export function useManagerDocumentsView(props) {
     pendingOperation.value = null
     pendingRecord.value = null
     operationError.value = null
+    resetCertificateState()
   }
 
-  async function submitRecordOperation(comment) {
+  async function submitRecordOperation({ comment, certificate } = {}) {
     const record = pendingRecord.value
     const operation = pendingOperation.value
     if (!record || !operation) return
@@ -178,9 +219,36 @@ export function useManagerDocumentsView(props) {
       return
     }
 
-    const payload = buildProcessTaskPayload(record, operation, trimmed)
+    const signatureRequired = operation.signatureRequired === true
+    if (signatureRequired && !certificate?.id) {
+      operationError.value = 'Выберите сертификат электронной подписи.'
+      return
+    }
+
+    let extras = null
+    if (signatureRequired) {
+      const file = getSignableFile(record)
+      if (!file) {
+        operationError.value = 'Не найден файл для подписи.'
+        return
+      }
+
+      operationSubmitting.value = true
+      operationError.value = null
+      try {
+        const signature = await signFile(certificate.id, file, client._http.session)
+        extras = { signature, fileId: file.id }
+      } catch (e) {
+        operationError.value = e instanceof Error ? e.message : String(e)
+        operationSubmitting.value = false
+        return
+      }
+    }
+
+    const payload = buildProcessTaskPayload(record, operation, trimmed, extras)
     if (!payload) {
       operationError.value = 'Не удалось сформировать запрос операции.'
+      if (signatureRequired) operationSubmitting.value = false
       return
     }
 
@@ -189,7 +257,7 @@ export function useManagerDocumentsView(props) {
     try {
       await client.processWorkflowTask(payload)
       closeRecordOperationDialog()
-      await reloadMainList()
+      await reloadAfterOperation()
     } catch (e) {
       operationError.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -203,12 +271,18 @@ export function useManagerDocumentsView(props) {
     await listApi.reloadRecordsList()
   }
 
+  async function reloadAfterOperation() {
+    await loadSections({ preserveSelection: true })
+    await reloadMainList()
+  }
+
   function selectSection(row, index) {
     applySectionSelection(row, index)
     void reloadMainList()
   }
 
-  async function loadSections() {
+  async function loadSections({ preserveSelection = false } = {}) {
+    const previousSectionId = selectedSectionId.value
     sectionsLoading.value = true
     sectionsError.value = null
     try {
@@ -221,8 +295,21 @@ export function useManagerDocumentsView(props) {
       const rows = Array.isArray(res?.data) ? res.data : []
       sections.value = rows
       if (rows.length > 0) {
-        applySectionSelection(rows[0], 0)
-        await reloadMainList()
+        if (preserveSelection && previousSectionId) {
+          const index = rows.findIndex(
+            (row) => row?.recordId !== undefined && String(row.recordId) === String(previousSectionId)
+          )
+          if (index >= 0) {
+            applySectionSelection(rows[index], index)
+          } else {
+            applySectionSelection(rows[0], 0)
+          }
+        } else {
+          applySectionSelection(rows[0], 0)
+        }
+        if (selectedSectionId.value) {
+          await reloadMainList()
+        }
       } else {
         selectedSectionKey.value = ''
         selectedSectionId.value = null
@@ -271,8 +358,13 @@ export function useManagerDocumentsView(props) {
     operationDialogOpen,
     operationDialogTitle,
     operationCommentRequired,
+    operationSignatureRequired,
     operationSubmitting,
     operationError,
+    certificates,
+    certificatesLoading,
+    certificatesError,
+    selectedCertificateId,
     openRecordOperation,
     closeRecordOperationDialog,
     submitRecordOperation,

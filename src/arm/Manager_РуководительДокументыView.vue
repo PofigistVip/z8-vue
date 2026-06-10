@@ -24,8 +24,13 @@ const {
   operationDialogOpen,
   operationDialogTitle,
   operationCommentRequired,
+  operationSignatureRequired,
   operationSubmitting,
   operationError,
+  certificates,
+  certificatesLoading,
+  certificatesError,
+  selectedCertificateId,
   closeRecordOperationDialog,
   submitRecordOperation,
 } = viewContext
@@ -39,8 +44,13 @@ const { matches: isDesktop } = useMinWidth(MANAGER_DESKTOP_MIN_WIDTH)
 
   <ManagerDocumentsOperationCommentDialog
     v-model="operationDialogOpen"
+    v-model:selected-certificate-id="selectedCertificateId"
     :title="operationDialogTitle"
     :required="operationCommentRequired"
+    :signature-required="operationSignatureRequired"
+    :certificates="certificates"
+    :certificates-loading="certificatesLoading"
+    :certificates-error="certificatesError ?? ''"
     :submitting="operationSubmitting"
     :error="operationError ?? ''"
     @cancel="closeRecordOperationDialog"
