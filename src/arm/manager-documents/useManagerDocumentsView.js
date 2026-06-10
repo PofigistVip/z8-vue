@@ -324,6 +324,10 @@ export function useManagerDocumentsView(props) {
     }
   }
 
+  function reloadSections() {
+    return loadSections({ preserveSelection: true })
+  }
+
   onMounted(() => {
     void loadSections()
   })
@@ -347,6 +351,7 @@ export function useManagerDocumentsView(props) {
     sectionCount,
     listBeforeRequest,
     selectSection,
+    reloadSections,
     showRowTooltip,
     hideRowTooltip,
     toggleRowTooltip,

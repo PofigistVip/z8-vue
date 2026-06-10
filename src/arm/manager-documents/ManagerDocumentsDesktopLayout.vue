@@ -8,6 +8,7 @@ import ManagerRecordRequisitesTooltip from '../ManagerRecordRequisitesTooltip.vu
 import { formatZ8UnixCellValue } from '../../z8/z8Format.js'
 import { MANAGER_DOCUMENTS_VIEW_KEY } from './constants.js'
 import ManagerDocumentsRecordOperations from './ManagerDocumentsRecordOperations.vue'
+import ManagerDocumentsRefreshIconButton from './ManagerDocumentsRefreshIconButton.vue'
 
 const view = inject(MANAGER_DOCUMENTS_VIEW_KEY)
 
@@ -33,6 +34,7 @@ const {
   sectionCount,
   listBeforeRequest,
   selectSection,
+  reloadSections,
   showRowTooltip,
   scheduleHideRowTooltip,
   onTooltipHoverEnter,
@@ -49,10 +51,14 @@ const {
       class="flex shrink-0 min-h-0 flex-col rounded-lg border border-slate-200 bg-white"
       :style="{ width: `${sectionsWidth}px` }"
     >
-      <div class="shrink-0 border-b px-3 py-2">
+      <div class="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Разделы
         </div>
+        <ManagerDocumentsRefreshIconButton
+          :disabled="sectionsLoading"
+          @click="reloadSections"
+        />
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto p-2">

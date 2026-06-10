@@ -2,6 +2,7 @@
 import { inject, ref } from 'vue'
 
 import { MANAGER_DOCUMENTS_VIEW_KEY } from './constants.js'
+import ManagerDocumentsRefreshIconButton from './ManagerDocumentsRefreshIconButton.vue'
 
 const {
   sections,
@@ -12,6 +13,7 @@ const {
   sectionLabel,
   sectionCount,
   selectSection,
+  reloadSections,
 } = inject(MANAGER_DOCUMENTS_VIEW_KEY)
 
 const sectionsSheetOpen = ref(false)
@@ -84,18 +86,24 @@ function onSelectSectionFromSheet(row, index) {
       >
         <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
           <div class="text-sm font-semibold text-slate-900">Разделы</div>
-          <button
-            type="button"
-            class="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            aria-label="Закрыть"
-            @click="sectionsSheetOpen = false"
-          >
-            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path
-                d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"
-              />
-            </svg>
-          </button>
+          <div class="flex items-center gap-1">
+            <ManagerDocumentsRefreshIconButton
+              :disabled="sectionsLoading"
+              @click="reloadSections"
+            />
+            <button
+              type="button"
+              class="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Закрыть"
+              @click="sectionsSheetOpen = false"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path
+                  d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto p-2">
