@@ -148,4 +148,10 @@ export class Z8Client {
     if (pollIntervalMs !== undefined) options.pollIntervalMs = pollIntervalMs
     return await this._http.job(options)
   }
+
+  async processWorkflowTask(payload) {
+    this.requireSession()
+    const json = await this._http.request({ payload })
+    return assertSuccess(json, 'Workflow operation failed')
+  }
 }

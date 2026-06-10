@@ -2,6 +2,7 @@
 import { provide } from 'vue'
 
 import ManagerDocumentsDesktopLayout from './manager-documents/ManagerDocumentsDesktopLayout.vue'
+import ManagerDocumentsOperationCommentDialog from './manager-documents/ManagerDocumentsOperationCommentDialog.vue'
 import ManagerDocumentsTabletLayout from './manager-documents/ManagerDocumentsTabletLayout.vue'
 import {
   MANAGER_DESKTOP_MIN_WIDTH,
@@ -19,10 +20,30 @@ const props = defineProps({
 const viewContext = useManagerDocumentsView(props)
 provide(MANAGER_DOCUMENTS_VIEW_KEY, viewContext)
 
+const {
+  operationDialogOpen,
+  operationDialogTitle,
+  operationCommentRequired,
+  operationSubmitting,
+  operationError,
+  closeRecordOperationDialog,
+  submitRecordOperation,
+} = viewContext
+
 const { matches: isDesktop } = useMinWidth(MANAGER_DESKTOP_MIN_WIDTH)
 </script>
 
 <template>
   <ManagerDocumentsDesktopLayout v-if="isDesktop" />
   <ManagerDocumentsTabletLayout v-else />
+
+  <ManagerDocumentsOperationCommentDialog
+    v-model="operationDialogOpen"
+    :title="operationDialogTitle"
+    :required="operationCommentRequired"
+    :submitting="operationSubmitting"
+    :error="operationError ?? ''"
+    @cancel="closeRecordOperationDialog"
+    @submit="submitRecordOperation"
+  />
 </template>

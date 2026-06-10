@@ -1,8 +1,13 @@
-import { inject, nextTick, onMounted, ref } from 'vue'
+import { computed, inject, nextTick, onMounted, ref } from 'vue'
 
 import { useResizableWidth } from '../../components/z8/useResizableWidth.js'
+import { getContractorId } from '../../stores/userStore.js'
 import { Z8Client } from '../../z8/z8Client.js'
 import { SECTIONS_REQUEST } from './constants.js'
+import {
+  buildProcessTaskPayload,
+  getRecordWorkflowOperations,
+} from './getRecordWorkflowOperations.js'
 import { useManagerDocumentsList } from './useManagerDocumentsList.js'
 
 const TOOLTIP_HIDE_DELAY_MS = 120
@@ -112,6 +117,7 @@ export function useManagerDocumentsView(props) {
     if (!id) return
     if (method === 'read' || method === 'count') {
       payload.section = id
+      payload.needFormConfig = true
     }
   }
 
@@ -123,6 +129,73 @@ export function useManagerDocumentsView(props) {
   }
 
   const listApi = useManagerDocumentsList(props, listBeforeRequest)
+  const { selectedRecord } = listApi
+
+  const recordOperations = computed(() =>
+    getRecordWorkflowOperations(selectedRecord.value, getContractorId())
+  )
+
+  function recordOperationsFor(record) {
+    return getRecordWorkflowOperations(record, getContractorId())
+  }
+
+  const operationDialogOpen = ref(false)
+  const pendingOperation = ref(null)
+  const pendingRecord = ref(null)
+  const operationSubmitting = ref(false)
+  const operationError = ref(null)
+
+  const operationDialogTitle = computed(() => {
+    const text = pendingOperation.value?.text
+    return typeof text === 'string' && text.trim() ? text.trim() : 'Комментарий'
+  })
+
+  const operationCommentRequired = computed(() => pendingOperation.value?.commentRequired === true)
+
+  function openRecordOperation(record, operation) {
+    if (!record || !operation) return
+    pendingRecord.value = record
+    pendingOperation.value = operation
+    operationError.value = null
+    operationDialogOpen.value = true
+  }
+
+  function closeRecordOperationDialog() {
+    operationDialogOpen.value = false
+    pendingOperation.value = null
+    pendingRecord.value = null
+    operationError.value = null
+  }
+
+  async function submitRecordOperation(comment) {
+    const record = pendingRecord.value
+    const operation = pendingOperation.value
+    if (!record || !operation) return
+
+    const trimmed = typeof comment === 'string' ? comment.trim() : ''
+    if (operation.commentRequired && !trimmed) {
+      operationError.value = 'Введите комментарий.'
+      return
+    }
+
+    const payload = buildProcessTaskPayload(record, operation, trimmed)
+    if (!payload) {
+      operationError.value = 'Не удалось сформировать запрос операции.'
+      return
+    }
+
+    operationSubmitting.value = true
+    operationError.value = null
+    try {
+      await client.processWorkflowTask(payload)
+      closeRecordOperationDialog()
+      await reloadMainList()
+    } catch (e) {
+      operationError.value = e instanceof Error ? e.message : String(e)
+    } finally {
+      operationSubmitting.value = false
+    }
+  }
 
   async function reloadMainList() {
     await nextTick()
@@ -193,6 +266,16 @@ export function useManagerDocumentsView(props) {
     scheduleHideRowTooltip,
     onTooltipHoverEnter,
     onTooltipHoverLeave,
+    recordOperations,
+    recordOperationsFor,
+    operationDialogOpen,
+    operationDialogTitle,
+    operationCommentRequired,
+    operationSubmitting,
+    operationError,
+    openRecordOperation,
+    closeRecordOperationDialog,
+    submitRecordOperation,
     ...listApi,
   }
 }
