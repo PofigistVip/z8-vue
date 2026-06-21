@@ -20,6 +20,11 @@ function operationVariant(op) {
   return 'default'
 }
 
+function operationButtonId(op) {
+  const text = typeof op?.text === 'string' ? op.text.trim() : ''
+  return `btn-${text.toLowerCase().replace(/\s+/g, '-')}`
+}
+
 function buttonClass(variant, stretch) {
   const base =
     'inline-flex items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors enabled:cursor-pointer disabled:cursor-not-allowed'
@@ -44,6 +49,7 @@ function buttonClass(variant, stretch) {
       v-for="(op, index) in operations"
       :key="`${op.text ?? 'op'}-${index}`"
       type="button"
+      :id="operationButtonId(op)"
       :class="buttonClass(operationVariant(op), stretch)"
       :disabled="disabled || submitting"
       @click="emit('run', op)"
