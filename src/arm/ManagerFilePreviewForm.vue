@@ -203,12 +203,30 @@ function fileDownloadName(file) {
   return typeof file?.name === 'string' && file.name.trim() ? file.name.trim() : 'document.pdf'
 }
 
+function toggleFilePanel(key, fileList, openIdRef) {
+  if (openIdRef.value !== key) {
+    openIdRef.value = key
+    return
+  }
+
+  if (fileList.length <= 1) return
+
+  const currentIndex = fileList.findIndex((file, idx) => fileKey(file, idx) === key)
+  if (currentIndex < 0) {
+    openIdRef.value = key
+    return
+  }
+
+  const nextIndex = (currentIndex + 1) % fileList.length
+  openIdRef.value = fileKey(fileList[nextIndex], nextIndex)
+}
+
 function toggleLeft(key) {
-  openLeftId.value = openLeftId.value === key ? '' : key
+  toggleFilePanel(key, leftFiles.value, openLeftId)
 }
 
 function toggleRight(key) {
-  openRightId.value = openRightId.value === key ? '' : key
+  toggleFilePanel(key, rightFiles.value, openRightId)
 }
 </script>
 
