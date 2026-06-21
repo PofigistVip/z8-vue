@@ -14,7 +14,7 @@ const props = defineProps({
   clientSession: { type: String, default: '' },
 })
 
-const LEFT_FILE_TYPES = new Set(['Доклад', 'Побудитель', 'Лист согласования'])
+const LEFT_FILE_TYPES = new Set(['Доклад', 'Побудитель', 'Лист согласования', 'Особое мнение'])
 const RIGHT_FILE_TYPES = new Set(['Проект документа', 'Приложение'])
 
 const PREVIEWABLE_EXTENSIONS = new Set([
