@@ -17,6 +17,31 @@ const props = defineProps({
 const LEFT_FILE_TYPES = new Set(['Доклад', 'Побудитель', 'Лист согласования'])
 const RIGHT_FILE_TYPES = new Set(['Проект документа', 'Приложение'])
 
+const PREVIEWABLE_EXTENSIONS = new Set([
+  'pdf',
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'bmp',
+  'webp',
+  'tif',
+  'tiff',
+  'svg',
+  'ico',
+  'doc',
+  'docx',
+  'docm',
+  'xls',
+  'xlsx',
+  'xlsm',
+  'xlsb',
+  'odt',
+  'ott',
+  'ods',
+  'ots',
+])
+
 const openLeftId = ref('')
 const openRightId = ref('')
 const columnsRef = ref(null)
@@ -64,12 +89,19 @@ function normalizeFilesValue(raw) {
 
 const files = computed(() => normalizeFilesValue(props.record?.['актуальнаяВерсия.файлы']))
 
-function isPdfFile(file) {
-  const name = typeof file?.name === 'string' ? file.name : ''
-  const path = typeof file?.path === 'string' ? file.path : ''
+function getFileExtension(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  const dot = normalized.lastIndexOf('.')
+  if (dot < 0 || dot === normalized.length - 1) return ''
+  return normalized.slice(dot + 1)
+}
+
+function isPreviewableFile(file) {
+  const nameExt = getFileExtension(file?.name)
+  const pathExt = getFileExtension(file?.path)
   return (
-    name.trim().toLowerCase().endsWith('.pdf') ||
-    path.trim().toLowerCase().endsWith('.pdf')
+    PREVIEWABLE_EXTENSIONS.has(nameExt) ||
+    PREVIEWABLE_EXTENSIONS.has(pathExt)
   )
 }
 
@@ -79,10 +111,10 @@ function fileType(file) {
 }
 
 const leftFiles = computed(() =>
-  files.value.filter((f) => LEFT_FILE_TYPES.has(fileType(f)) && isPdfFile(f))
+  files.value.filter((f) => LEFT_FILE_TYPES.has(fileType(f)) && isPreviewableFile(f))
 )
 const rightFiles = computed(() =>
-  files.value.filter((f) => RIGHT_FILE_TYPES.has(fileType(f)) && isPdfFile(f))
+  files.value.filter((f) => RIGHT_FILE_TYPES.has(fileType(f)) && isPreviewableFile(f))
 )
 
 function fileKey(file, idx) {
